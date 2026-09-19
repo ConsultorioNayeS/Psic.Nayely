@@ -5,12 +5,36 @@ import AuthView from './components/AuthView';
 import { supabase } from './lib/supabase';
 import { LogOut } from 'lucide-react';
 
+// ============ NORMALIZADORES (Supabase snake_case → camelCase frontend) ============
+const normalizeAppointment = (apt) => {
+  if (!apt) return apt;
+  return {
+    ...apt,
+    rawDate: apt.raw_date || apt.rawDate || '',
+    patientId: apt.patient_id || apt.patientId || null,
+    patientName: apt.patient_name || apt.patientName || '',
+    patientPhone: apt.patient_phone || apt.patientPhone || '',
+  };
+};
+
+const normalizePatient = (p) => {
+  if (!p) return p;
+  return {
+    ...p,
+    firstName: p.first_name || p.firstName || '',
+    paternalLastName: p.paternal_last_name || p.paternalLastName || '',
+    maternalLastName: p.maternal_last_name || p.maternalLastName || '',
+    emergencyContact: p.emergency_contact || p.emergencyContact || {},
+    previousTherapy: p.previous_therapy || p.previousTherapy || 'No',
+    therapeuticGoals: p.therapeutic_goals || p.therapeuticGoals || '',
+  };
+};
+
 export default function App() {
   // CLAVE MAESTRA DE LA PSIC. NAYELY
   const THERAPIST_USER = 'nayely';
   const THERAPIST_PIN = '998877';
 
-  // Sesión guardada en el dispositivo
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('nayely_auth_session');
     return saved ? JSON.parse(saved) : null;
@@ -18,7 +42,6 @@ export default function App() {
 
   const [isLoading, setIsLoading] = useState(true);
 
-  // ESTADOS EN BLANCO SINCRONIZADOS CON SUPABASE
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [patientTasks, setPatientTasks] = useState([]);
@@ -31,31 +54,24 @@ export default function App() {
   // 1. CARGAR DATOS REALES DE SUPABASE AL INICIAR
   const fetchCloudData = async () => {
     try {
-      // Pacientes
       const { data: pts } = await supabase.from('patients').select('*').order('created_at', { ascending: false });
-      if (pts) setPatients(pts);
+      if (pts) setPatients(pts.map(normalizePatient));
 
-      // Citas
       const { data: apts } = await supabase.from('appointments').select('*').order('created_at', { ascending: false });
-      if (apts) setAppointments(apts);
+      if (apts) setAppointments(apts.map(normalizeAppointment));
 
-      // Tareas
       const { data: tsks } = await supabase.from('patient_tasks').select('*').order('created_at', { ascending: false });
       if (tsks) setPatientTasks(tsks);
 
-      // Epifanías
       const { data: eps } = await supabase.from('epiphanies').select('*').order('created_at', { ascending: false });
       if (eps) setEpiphanies(eps);
 
-      // Buzón de Temas
       const { data: tops } = await supabase.from('session_topics').select('*').order('created_at', { ascending: false });
       if (tops) setSessionTopics(tops);
 
-      // Victorias
       const { data: vics } = await supabase.from('micro_victories').select('*').order('created_at', { ascending: false });
       if (vics) setVictories(vics);
 
-      // Audios
       const { data: auds } = await supabase.from('audio_library').select('*').order('created_at', { ascending: false });
       if (auds) setAudioLibrary(auds);
     } catch (err) {
@@ -88,13 +104,12 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // INICIO DE SESIÓN CON PIN EN TIEMPO REAL
+  // INICIO DE SESIÓN CON PIN
   const handleLoginWithPin = (identifier, enteredPin) => {
     const cleanId = identifier.replace(/\D/g, '') || identifier.toLowerCase().trim();
 
-    // A. ¿Es la Psic. Nayely?
     if (
-      (cleanId === THERAPIST_USER || identifier.toLowerCase().includes('nayely')) && 
+      (cleanId === THERAPIST_USER || identifier.toLowerCase().includes('nayely')) &&
       enteredPin === THERAPIST_PIN
     ) {
       const authData = { role: 'therapist', name: 'Psic. Nayely', id: 'nayely' };
@@ -103,7 +118,6 @@ export default function App() {
       return true;
     }
 
-    // B. ¿Es un paciente de la base de datos de Supabase?
     const patientFound = patients.find(p => {
       const patientCleanPhone = p.phone?.replace(/\D/g, '') || '';
       return (patientCleanPhone === cleanId || p.email?.toLowerCase() === identifier.toLowerCase().trim()) && p.pin === enteredPin;
@@ -124,117 +138,177 @@ export default function App() {
     setCurrentUser(null);
   };
 
-  // =========================================================================
-  // OPERACIONES EN LA NUBE (GUARDAN DIRECTO EN SUPABASE)
-  // =========================================================================
+  // ================= OPERACIONES EN SUPABASE =================
 
-  // Guardar nuevo paciente en Supabase
+  // Guardar nuevo paciente
   const handleSavePatient = async (newPatient) => {
-    const pin = newPatient.pin || Math.floor(100000 + Math.random() * 900000).toString();
-    const patientPayload = {
-      first_name: newPatient.firstName,
-      paternal_last_name: newPatient.paternalLastName,
-      maternal_last_name: newPatient.maternalLastName,
-      name: newPatient.name,
-      phone: newPatient.phone,
-      email: newPatient.email,
-      pin: pin,
-      age: newPatient.age,
-      gender: newPatient.gender || 'Femenino',
-      occupation: newPatient.occupation,
-      status: 'active',
-      emergency_contact: newPatient.emergencyContact,
-      motivo: newPatient.motivo,
-      medication: newPatient.medication,
-      previous_therapy: newPatient.previousTherapy,
-      therapeutic_goals: newPatient.therapeuticGoals,
-    };
+    try {
+      const pin = newPatient.pin || Math.floor(100000 + Math.random() * 900000).toString();
+      const patientPayload = {
+        first_name: newPatient.firstName,
+        paternal_last_name: newPatient.paternalLastName,
+        maternal_last_name: newPatient.maternalLastName,
+        name: newPatient.name,
+        phone: newPatient.phone,
+        email: newPatient.email,
+        pin: pin,
+        age: newPatient.age,
+        gender: newPatient.gender || 'Femenino',
+        occupation: newPatient.occupation,
+        status: 'active',
+        emergency_contact: newPatient.emergencyContact,
+        motivo: newPatient.motivo,
+        medication: newPatient.medication,
+        previous_therapy: newPatient.previousTherapy,
+        therapeutic_goals: newPatient.therapeuticGoals,
+      };
 
-    const { data, error } = await supabase.from('patients').insert([patientPayload]).select();
-    if (data && data[0]) {
-      setPatients([data[0], ...patients]);
+      const { data, error } = await supabase.from('patients').insert([patientPayload]).select();
+      if (error) {
+        console.error('Error guardando paciente:', error);
+        alert(`No se pudo guardar el paciente: ${error.message}`);
+        return false;
+      }
+      if (data && data[0]) {
+        setPatients([normalizePatient(data[0]), ...patients]);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error(err);
+      alert(`Error inesperado: ${err.message}`);
+      return false;
     }
   };
 
-  // Actualizar expediente existente en Supabase
+  // Actualizar expediente existente
   const handleUpdatePatient = async (updatedPatient) => {
-    const { error } = await supabase
-      .from('patients')
-      .update({
-        first_name: updatedPatient.firstName,
-        paternal_last_name: updatedPatient.paternalLastName,
-        maternal_last_name: updatedPatient.maternalLastName,
-        name: updatedPatient.name,
-        phone: updatedPatient.phone,
-        email: updatedPatient.email,
-        pin: updatedPatient.pin,
-        age: updatedPatient.age,
-        occupation: updatedPatient.occupation,
-        status: updatedPatient.status,
-        emergency_contact: updatedPatient.emergencyContact,
-        motivo: updatedPatient.motivo,
-        medication: updatedPatient.medication,
-        therapeutic_goals: updatedPatient.therapeuticGoals,
-      })
-      .eq('id', updatedPatient.id);
+    try {
+      const { error } = await supabase
+        .from('patients')
+        .update({
+          first_name: updatedPatient.firstName,
+          paternal_last_name: updatedPatient.paternalLastName,
+          maternal_last_name: updatedPatient.maternalLastName,
+          name: updatedPatient.name,
+          phone: updatedPatient.phone,
+          email: updatedPatient.email,
+          pin: updatedPatient.pin,
+          age: updatedPatient.age,
+          occupation: updatedPatient.occupation,
+          status: updatedPatient.status,
+          emergency_contact: updatedPatient.emergencyContact,
+          motivo: updatedPatient.motivo,
+          medication: updatedPatient.medication,
+          therapeutic_goals: updatedPatient.therapeuticGoals,
+        })
+        .eq('id', updatedPatient.id);
 
-    if (!error) {
-      setPatients(patients.map(p => p.id === updatedPatient.id ? updatedPatient : p));
+      if (error) {
+        console.error('Error actualizando paciente:', error);
+        return false;
+      }
+      setPatients(patients.map(p => p.id === updatedPatient.id ? normalizePatient(updatedPatient) : p));
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
     }
   };
 
-  // Agendar nueva cita en Supabase
+  // ⭐ AGENDAR NUEVA CITA (AQUÍ ESTABA EL BUG)
   const handleScheduleAppointment = async (newAppointment) => {
-    const payload = {
-      patient_id: newAppointment.patientId,
-      patient_name: newAppointment.patientName,
-      patient_phone: newAppointment.patientPhone,
-      date: newAppointment.date,
-      raw_date: newAppointment.rawDate,
-      time: newAppointment.time,
-      modality: newAppointment.modality,
-      location: newAppointment.location,
-      status: 'Confirmada',
-    };
+    try {
+      const payload = {
+        patient_id: newAppointment.patientId,
+        patient_name: newAppointment.patientName,
+        patient_phone: newAppointment.patientPhone || '',
+        date: newAppointment.date,
+        raw_date: newAppointment.rawDate,
+        time: newAppointment.time,
+        modality: newAppointment.modality,
+        location: newAppointment.location,
+        status: 'Confirmada',
+      };
 
-    const { data } = await supabase.from('appointments').insert([payload]).select();
-    if (data && data[0]) {
-      setAppointments([data[0], ...appointments]);
+      console.log('📅 Insertando cita en Supabase:', payload);
+
+      const { data, error } = await supabase.from('appointments').insert([payload]).select();
+
+      if (error) {
+        console.error('❌ Error al agendar cita en Supabase:', error);
+        alert(
+          `No se pudo agendar la cita.\n\nDetalle: ${error.message}\n\n` +
+          `Verifica en Supabase que la tabla "appointments" tenga las columnas:\n` +
+          `patient_id, patient_name, patient_phone, date, raw_date, time, modality, location, status`
+        );
+        return false;
+      }
+
+      if (data && data[0]) {
+        console.log('✅ Cita guardada:', data[0]);
+        setAppointments([normalizeAppointment(data[0]), ...appointments]);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('❌ Excepción al agendar cita:', err);
+      alert(`Error inesperado al agendar: ${err.message}`);
+      return false;
     }
   };
 
-  // Reagendar cita en Supabase
+  // Reagendar cita
   const handleUpdateAppointment = async (updatedAppointment) => {
-    await supabase
-      .from('appointments')
-      .update({
-        date: updatedAppointment.date,
-        raw_date: updatedAppointment.rawDate,
-        time: updatedAppointment.time,
-        modality: updatedAppointment.modality,
-        location: updatedAppointment.location,
-      })
-      .eq('id', updatedAppointment.id);
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({
+          date: updatedAppointment.date,
+          raw_date: updatedAppointment.rawDate,
+          time: updatedAppointment.time,
+          modality: updatedAppointment.modality,
+          location: updatedAppointment.location,
+        })
+        .eq('id', updatedAppointment.id);
 
-    setAppointments(appointments.map(a => a.id === updatedAppointment.id ? updatedAppointment : a));
+      if (error) {
+        console.error('Error al reagendar:', error);
+        alert(`No se pudo reagendar: ${error.message}`);
+        return false;
+      }
+      setAppointments(appointments.map(a => a.id === updatedAppointment.id ? normalizeAppointment(updatedAppointment) : a));
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
   };
 
-  // Cancelar/Eliminar cita en Supabase
+  // Cancelar/eliminar cita
   const handleDeleteAppointment = async (id) => {
-    await supabase.from('appointments').delete().eq('id', id);
-    setAppointments(appointments.filter(a => a.id !== id));
+    try {
+      const { error } = await supabase.from('appointments').delete().eq('id', id);
+      if (error) {
+        console.error('Error al eliminar:', error);
+        alert(`No se pudo eliminar: ${error.message}`);
+        return false;
+      }
+      setAppointments(appointments.filter(a => a.id !== id));
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
   };
 
-  // Concluir sesión (Múltiples aprendizajes, tareas y nota médica)
+  // Concluir sesión
   const handleCompleteSession = async ({ appointmentId, patientId, clinicalNote, epiphanies: newEpiphanies = [], tasks: newTasks = [], date }) => {
-    // 1. Marcar completada
     await supabase.from('appointments').update({ status: 'Completada' }).eq('id', appointmentId);
     setAppointments(appointments.map(a => a.id === appointmentId ? { ...a, status: 'Completada' } : a));
 
-    // 2. Guardar nota clínica
     await supabase.from('clinical_notes').insert([{ patient_id: patientId, date: date || 'Hoy', text: clinicalNote }]);
 
-    // 3. Guardar epifanías en Supabase
     if (newEpiphanies.length > 0) {
       const payloadEps = newEpiphanies.map(e => ({
         patient_id: patientId,
@@ -247,7 +321,6 @@ export default function App() {
       if (savedEps) setEpiphanies([...savedEps, ...epiphanies]);
     }
 
-    // 4. Guardar tareas en Supabase
     if (newTasks.length > 0) {
       const payloadTasks = newTasks.map(t => ({
         patient_id: patientId,
@@ -260,7 +333,7 @@ export default function App() {
     }
   };
 
-  // Subir audio a la fonoteca en Supabase
+  // Subir audio
   const handleAddAudio = async (newAudio) => {
     const payload = {
       title: newAudio.title,
@@ -273,7 +346,7 @@ export default function App() {
     if (data && data[0]) setAudioLibrary([data[0], ...audioLibrary]);
   };
 
-  // Tareas: Asignar, Marcar y Borrar
+  // Tareas
   const handleAddTask = async (newTask) => {
     const payload = {
       patient_id: newTask.patientId || (currentUser?.role === 'patient' ? currentUser.patientId : null),
@@ -298,7 +371,7 @@ export default function App() {
     setPatientTasks(patientTasks.filter(t => t.id !== id));
   };
 
-  // Buzón de sesión
+  // Buzón
   const handleAddSessionTopic = async (newTopic) => {
     const payload = {
       patient_id: currentUser?.patientId,
@@ -316,7 +389,7 @@ export default function App() {
     setSessionTopics(sessionTopics.filter(t => t.id !== id));
   };
 
-  // Epifanía individual
+  // Epifanía
   const handleAddEpiphany = async (newEpiphany) => {
     const payload = {
       patient_id: currentUser?.patientId,
@@ -329,7 +402,7 @@ export default function App() {
     if (data && data[0]) setEpiphanies([data[0], ...epiphanies]);
   };
 
-  // Victorias silenciosas
+  // Victorias
   const handleAddVictory = async (newVictory) => {
     const payload = {
       patient_id: currentUser?.patientId,
@@ -341,7 +414,7 @@ export default function App() {
     if (data && data[0]) setVictories([data[0], ...victories]);
   };
 
-  // Carta de auto-rescate
+  // Carta de rescate
   const handleSaveRescueLetter = async (letter) => {
     const payload = {
       patient_id: currentUser?.patientId,
@@ -362,10 +435,10 @@ export default function App() {
     );
   }
 
-  // SI NO HAY SESIÓN INICIADA: PANTALLA DE INGRESO CON PIN
+  // LOGIN
   if (!currentUser) {
     return (
-      <AuthView 
+      <AuthView
         onLoginWithPin={handleLoginWithPin}
         therapistPin={THERAPIST_PIN}
       />
@@ -373,37 +446,35 @@ export default function App() {
   }
 
   const isTherapist = currentUser.role === 'therapist';
-  const currentPatient = !isTherapist 
+  const currentPatient = !isTherapist
     ? (patients.find(p => p.id === currentUser.patientId) || null)
     : null;
 
-  // Filtrar información exclusiva del paciente conectado
-  const patientSpecificAppointments = currentPatient 
-    ? appointments.filter(a => a.patient_id === currentPatient.id || a.patientId === currentPatient.id) 
+  const patientSpecificAppointments = currentPatient
+    ? appointments.filter(a => a.patientId === currentPatient.id || a.patient_id === currentPatient.id)
     : [];
   const patientUpcomingAppointment = patientSpecificAppointments.find(a => a.status !== 'Completada');
 
-  const patientSpecificTasks = currentPatient 
-    ? patientTasks.filter(t => t.patient_id === currentPatient.id || t.patientId === currentPatient.id) 
+  const patientSpecificTasks = currentPatient
+    ? patientTasks.filter(t => t.patient_id === currentPatient.id || t.patientId === currentPatient.id)
     : [];
 
-  const patientSpecificTopics = currentPatient 
-    ? sessionTopics.filter(s => s.patient_id === currentPatient.id || s.patientId === currentPatient.id) 
+  const patientSpecificTopics = currentPatient
+    ? sessionTopics.filter(s => s.patient_id === currentPatient.id || s.patientId === currentPatient.id)
     : [];
 
-  const patientSpecificEpiphanies = currentPatient 
-    ? epiphanies.filter(e => e.patient_id === currentPatient.id || e.patientId === currentPatient.id) 
+  const patientSpecificEpiphanies = currentPatient
+    ? epiphanies.filter(e => e.patient_id === currentPatient.id || e.patientId === currentPatient.id)
     : [];
 
-  const patientSpecificVictories = currentPatient 
-    ? victories.filter(v => v.patient_id === currentPatient.id || v.patientId === currentPatient.id) 
+  const patientSpecificVictories = currentPatient
+    ? victories.filter(v => v.patient_id === currentPatient.id || v.patientId === currentPatient.id)
     : [];
 
   return (
     <div className="min-h-screen bg-[#faf8f5] flex justify-center selection:bg-emerald-100">
       <div className="w-full max-w-md bg-[#faf8f5] min-h-screen pb-20 relative shadow-xl border-x border-stone-200/50">
-        
-        {/* Barra superior fija de sesión activa */}
+
         <div className="bg-white/90 backdrop-blur-md px-4 py-2.5 border-b border-stone-200/80 flex items-center justify-between text-xs sticky top-0 z-40">
           <span className="text-[11px] text-stone-600 truncate max-w-[220px]">
             Sesión activa: <strong className="font-semibold text-stone-900">{currentUser.name}</strong>
@@ -418,9 +489,8 @@ export default function App() {
           </button>
         </div>
 
-        {/* VISTAS AUTOMÁTICAS POR ROL */}
         {!isTherapist ? (
-          <PatientView 
+          <PatientView
             audioLibrary={audioLibrary}
             tasks={patientSpecificTasks}
             sessionTopics={patientSpecificTopics}
@@ -437,7 +507,7 @@ export default function App() {
             upcomingAppointment={patientUpcomingAppointment}
           />
         ) : (
-          <TherapistView 
+          <TherapistView
             audioLibrary={audioLibrary}
             appointments={appointments}
             patients={patients}
