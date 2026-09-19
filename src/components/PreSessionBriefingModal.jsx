@@ -150,8 +150,8 @@ export default function PreSessionBriefingModal({
           {/* 4. Temas que el paciente preparó en su buzón */}
           <div className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-2xs space-y-2">
             <span className="font-semibold text-stone-800 flex items-center gap-1.5 text-xs">
-              <Inbox className="w-4 h-4 text-amber-700" /> Temas que Camila depositó para hoy:
-            </span>
+  <Inbox className="w-4 h-4 text-amber-700" /> Temas que {patient?.firstName || patient?.name?.split(' ')[0] || 'el paciente'} depositó para hoy:
+</span>
 
             {sessionTopics.length === 0 ? (
               <p className="text-stone-400 text-[11px] italic">No hay temas en su buzón.</p>

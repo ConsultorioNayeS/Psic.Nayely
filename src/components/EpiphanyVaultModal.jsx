@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { X, Sparkles, BookOpen, Plus, ArrowLeft, Heart, Quote } from 'lucide-react';
 
-export default function EpiphanyVaultModal({ epiphanies = [], onAddEpiphany, onClose }) {
+export default function EpiphanyVaultModal({ 
+  epiphanies = [], 
+  onAddEpiphany, 
+  onClose,
+  patientName = 'Paciente' // ⭐ NOMBRE DINÁMICO (fallback seguro)
+}) {
   const [newInsight, setNewInsight] = useState('');
   const [sessionContext, setSessionContext] = useState('');
+
+  // ⭐ Solo el primer nombre para personalizar la firma
+  const firstName = patientName ? patientName.split(' ')[0] : 'Paciente';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -14,7 +22,7 @@ export default function EpiphanyVaultModal({ epiphanies = [], onAddEpiphany, onC
       insight: newInsight.trim(),
       context: sessionContext.trim() || 'Sesión con Nayely',
       date: 'Anotado hoy',
-      author: 'Camila'
+      author: firstName // ⭐ ANTES: 'Camila' hardcodeado
     });
 
     setNewInsight('');
@@ -30,7 +38,7 @@ export default function EpiphanyVaultModal({ epiphanies = [], onAddEpiphany, onC
           <div className="flex items-center gap-2.5">
             <button 
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-600 transition-colors mr-1"
+              className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-600 transition-colors mr-1 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -44,7 +52,7 @@ export default function EpiphanyVaultModal({ epiphanies = [], onAddEpiphany, onC
           </div>
           <button 
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-400 text-xs"
+            className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-400 text-xs cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -80,7 +88,7 @@ export default function EpiphanyVaultModal({ epiphanies = [], onAddEpiphany, onC
               />
               <button
                 type="submit"
-                className="px-4 py-2.5 bg-[#436146] hover:bg-[#253827] text-white font-medium rounded-xl text-xs flex items-center gap-1 shadow-sm transition-all flex-shrink-0"
+                className="px-4 py-2.5 bg-[#436146] hover:bg-[#253827] text-white font-medium rounded-xl text-xs flex items-center gap-1 shadow-sm transition-all flex-shrink-0 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" /> Guardar
               </button>

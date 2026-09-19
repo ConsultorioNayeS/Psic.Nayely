@@ -31,7 +31,6 @@ const normalizePatient = (p) => {
 };
 
 export default function App() {
-  // CLAVE MAESTRA DE LA PSIC. NAYELY
   const THERAPIST_USER = 'nayely';
   const THERAPIST_PIN = '998877';
 
@@ -51,7 +50,6 @@ export default function App() {
   const [rescueLetter, setRescueLetter] = useState(null);
   const [audioLibrary, setAudioLibrary] = useState([]);
 
-  // 1. CARGAR DATOS REALES DE SUPABASE AL INICIAR
   const fetchCloudData = async () => {
     try {
       const { data: pts } = await supabase.from('patients').select('*').order('created_at', { ascending: false });
@@ -85,7 +83,6 @@ export default function App() {
     fetchCloudData();
   }, []);
 
-  // 2. CARGAR CARTA DE RESCATE CUANDO ENTRA UN PACIENTE ESPECÍFICO
   useEffect(() => {
     if (currentUser && currentUser.role === 'patient') {
       supabase
@@ -104,7 +101,6 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // INICIO DE SESIÓN CON PIN
   const handleLoginWithPin = (identifier, enteredPin) => {
     const cleanId = identifier.replace(/\D/g, '') || identifier.toLowerCase().trim();
 
@@ -140,7 +136,6 @@ export default function App() {
 
   // ================= OPERACIONES EN SUPABASE =================
 
-  // Guardar nuevo paciente
   const handleSavePatient = async (newPatient) => {
     try {
       const pin = newPatient.pin || Math.floor(100000 + Math.random() * 900000).toString();
@@ -181,7 +176,6 @@ export default function App() {
     }
   };
 
-  // Actualizar expediente existente
   const handleUpdatePatient = async (updatedPatient) => {
     try {
       const { error } = await supabase
@@ -216,7 +210,6 @@ export default function App() {
     }
   };
 
-  // ⭐ AGENDAR NUEVA CITA (AQUÍ ESTABA EL BUG)
   const handleScheduleAppointment = async (newAppointment) => {
     try {
       const payload = {
@@ -258,7 +251,6 @@ export default function App() {
     }
   };
 
-  // Reagendar cita
   const handleUpdateAppointment = async (updatedAppointment) => {
     try {
       const { error } = await supabase
@@ -285,7 +277,6 @@ export default function App() {
     }
   };
 
-  // Cancelar/eliminar cita
   const handleDeleteAppointment = async (id) => {
     try {
       const { error } = await supabase.from('appointments').delete().eq('id', id);
@@ -302,7 +293,6 @@ export default function App() {
     }
   };
 
-  // Concluir sesión
   const handleCompleteSession = async ({ appointmentId, patientId, clinicalNote, epiphanies: newEpiphanies = [], tasks: newTasks = [], date }) => {
     await supabase.from('appointments').update({ status: 'Completada' }).eq('id', appointmentId);
     setAppointments(appointments.map(a => a.id === appointmentId ? { ...a, status: 'Completada' } : a));
@@ -333,7 +323,6 @@ export default function App() {
     }
   };
 
-  // Subir audio
   const handleAddAudio = async (newAudio) => {
     const payload = {
       title: newAudio.title,
@@ -346,7 +335,6 @@ export default function App() {
     if (data && data[0]) setAudioLibrary([data[0], ...audioLibrary]);
   };
 
-  // Tareas
   const handleAddTask = async (newTask) => {
     const payload = {
       patient_id: newTask.patientId || (currentUser?.role === 'patient' ? currentUser.patientId : null),
@@ -371,7 +359,6 @@ export default function App() {
     setPatientTasks(patientTasks.filter(t => t.id !== id));
   };
 
-  // Buzón
   const handleAddSessionTopic = async (newTopic) => {
     const payload = {
       patient_id: currentUser?.patientId,
@@ -389,7 +376,6 @@ export default function App() {
     setSessionTopics(sessionTopics.filter(t => t.id !== id));
   };
 
-  // Epifanía
   const handleAddEpiphany = async (newEpiphany) => {
     const payload = {
       patient_id: currentUser?.patientId,
@@ -402,7 +388,6 @@ export default function App() {
     if (data && data[0]) setEpiphanies([data[0], ...epiphanies]);
   };
 
-  // Victorias
   const handleAddVictory = async (newVictory) => {
     const payload = {
       patient_id: currentUser?.patientId,
@@ -414,7 +399,6 @@ export default function App() {
     if (data && data[0]) setVictories([data[0], ...victories]);
   };
 
-  // Carta de rescate
   const handleSaveRescueLetter = async (letter) => {
     const payload = {
       patient_id: currentUser?.patientId,
@@ -426,7 +410,6 @@ export default function App() {
     if (data && data[0]) setRescueLetter(data[0]);
   };
 
-  // PANTALLA DE CARGA
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#faf8f5] flex items-center justify-center text-xs text-stone-400">
@@ -435,7 +418,6 @@ export default function App() {
     );
   }
 
-  // LOGIN
   if (!currentUser) {
     return (
       <AuthView
@@ -491,6 +473,7 @@ export default function App() {
 
         {!isTherapist ? (
           <PatientView
+            patientName={currentUser.name}
             audioLibrary={audioLibrary}
             tasks={patientSpecificTasks}
             sessionTopics={patientSpecificTopics}

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { 
-  Calendar, Wind, Heart, ChevronRight, CheckCircle2, 
-  Sun, Smile, Meh, AlertCircle, Frown, Headphones, 
-  Sparkles, Inbox, BookOpen, Compass, Droplets, Trophy, Feather 
+import {
+  Calendar, Wind, Heart, ChevronRight, CheckCircle2,
+  Sun, Smile, Meh, AlertCircle, Frown, Headphones,
+  Sparkles, Inbox, BookOpen, Compass, Droplets, Trophy, Feather
 } from 'lucide-react';
 import BreathingModal from './BreathingModal';
 import GroundingSOSModal from './GroundingSOSModal';
@@ -13,23 +13,24 @@ import EpiphanyVaultModal from './EpiphanyVaultModal';
 import OracleDeckModal from './OracleDeckModal';
 import ThoughtDissolverModal from './ThoughtDissolverModal';
 import MicroVictoriesModal from './MicroVictoriesModal';
-import SelfRescueMirrorModal from './SelfRescueMirrorModal'; // <-- IMPORTADO
+import SelfRescueMirrorModal from './SelfRescueMirrorModal';
 
-export default function PatientView({ 
-  audioLibrary = [], 
-  tasks = [], 
+export default function PatientView({
+  patientName = 'Paciente', // ⭐ NOMBRE DINÁMICO
+  audioLibrary = [],
+  tasks = [],
   sessionTopics = [],
   epiphanies = [],
   victories = [],
-  rescueLetter = null, // <-- Carta de rescate
-  patientStatus = 'active', // 'active' | 'graduated' | 'suspended'
-  onToggleTask, 
+  rescueLetter = null,
+  patientStatus = 'active',
+  onToggleTask,
   onAddSessionTopic,
   onDeleteSessionTopic,
   onAddEpiphany,
   onAddVictory,
   onSaveRescueLetter,
-  upcomingAppointment 
+  upcomingAppointment
 }) {
   const [showBreathing, setShowBreathing] = useState(false);
   const [showAudios, setShowAudios] = useState(false);
@@ -43,7 +44,6 @@ export default function PatientView({
   const [rescueModalMode, setRescueModalMode] = useState('read');
   const [activeMoodModal, setActiveMoodModal] = useState(null);
 
-  // Alerta automática cuando marca Abrumado o Triste
   const [showRescueBanner, setShowRescueBanner] = useState(false);
 
   const [recentCheckIn, setRecentCheckIn] = useState({
@@ -61,9 +61,14 @@ export default function PatientView({
     { label: 'Triste', icon: Frown, color: 'text-sky-500 bg-sky-50 border-sky-200' },
   ];
 
+  // ⭐ NOMBRE Y AVATAR DINÁMICOS
+  const firstName = patientName ? patientName.split(' ')[0] : 'Paciente';
+  const patientInitials = patientName
+    ? patientName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'PA';
+
   const latestEpiphany = epiphanies[0]?.insight || "Aprender a decir 'no' a los demás cuando estoy cansada es decirme 'sí' a mí misma.";
 
-  // Manejo automático de check-in emocional: Si es Abrumado/Triste y tiene carta, sugerirla
   const handleSaveMoodCheckIn = (entry) => {
     setRecentCheckIn(entry);
     if ((entry.mood === 'Abrumado' || entry.mood === 'Triste') && rescueLetter) {
@@ -71,7 +76,6 @@ export default function PatientView({
     }
   };
 
-  // CASO: PACIENTE SUSPENDIDO O DE BAJA
   if (patientStatus === 'suspended') {
     return (
       <div className="p-8 min-h-screen flex flex-col justify-center items-center text-center space-y-6 animate-fadeIn">
@@ -98,28 +102,27 @@ export default function PatientView({
 
   return (
     <div className="p-6 space-y-6 pb-28">
-      
-      {/* 1. Saludo Cálido */}
+
+      {/* 1. Saludo Cálido (AHORA DINÁMICO) */}
       <header className="flex justify-between items-start pt-2">
         <div>
           <span className="text-xs font-semibold tracking-wider text-[#436146] uppercase">
             {patientStatus === 'graduated' ? 'Cofre de Vida • Alta Terapéutica' : 'Espacio Seguro'}
           </span>
           <h1 className="text-2xl font-light tracking-tight text-stone-800">
-            Hola, <span className="font-medium text-[#253827]">Camila</span>
+            Hola, <span className="font-medium text-[#253827]">{firstName}</span>
           </h1>
           <p className="text-xs text-stone-500 mt-0.5">
-            {patientStatus === 'graduated' 
+            {patientStatus === 'graduated'
               ? 'Has concluido tu proceso con éxito. Este espacio es tu santuario permanente.'
               : 'Respira profundo, este momento es para ti.'}
           </p>
         </div>
-        <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-500/20 flex items-center justify-center text-[#253827] font-medium">
-          C
+        <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-500/20 flex items-center justify-center text-[#253827] font-medium text-xs">
+          {patientInitials}
         </div>
       </header>
 
-      {/* DISPARADOR AUTOMÁTICO: BANNER CUANDO HAY DÍA ABRUMADO/TRISTE */}
       {showRescueBanner && rescueLetter && (
         <div className="bg-gradient-to-r from-amber-50 to-[#faf5ee] border-2 border-amber-300/80 rounded-3xl p-4 shadow-md flex items-center justify-between gap-3 animate-fadeIn">
           <div className="flex items-center gap-3">
@@ -144,8 +147,8 @@ export default function PatientView({
         </div>
       )}
 
-      {/* 2. Baraja Diaria de la Psic. Nayely */}
-      <div 
+      {/* 2. Baraja Diaria */}
+      <div
         onClick={() => setShowOracle(true)}
         className="bg-gradient-to-r from-amber-50 to-[#faf5ee] border border-amber-200/80 rounded-3xl p-4 shadow-xs cursor-pointer hover:border-amber-400 transition-all flex items-center justify-between group"
       >
@@ -164,7 +167,7 @@ export default function PatientView({
         <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-1 transition-transform" />
       </div>
 
-      {/* 3. Próxima Cita (Oculta si ya se graduó con Alta Terapéutica) */}
+      {/* 3. Próxima Cita */}
       {patientStatus !== 'graduated' && (
         <div className="bg-gradient-to-br from-[#436146] to-[#253827] text-white rounded-3xl p-5 shadow-lg shadow-emerald-950/10">
           <div className="flex items-center gap-2 text-emerald-100 text-xs font-medium mb-2">
@@ -175,21 +178,20 @@ export default function PatientView({
             {upcomingAppointment ? upcomingAppointment.date : 'Sin cita programada'}
           </h3>
           <p className="text-xs text-emerald-100/90 mt-0.5">
-            {upcomingAppointment 
-              ? `${upcomingAppointment.time} • ${upcomingAppointment.location}` 
+            {upcomingAppointment
+              ? `${upcomingAppointment.time} • ${upcomingAppointment.location}`
               : 'Tu terapeuta te asignará tu próximo horario'}
           </p>
         </div>
       )}
 
-      {/* 4. SANTUARIO TERAPÉUTICO (INCLUYE EL ESPEJO DE RESCATE VOLUNTARIO) */}
+      {/* 4. Santuario Terapéutico */}
       <div className="space-y-2.5">
         <span className="text-xs font-semibold uppercase tracking-wider text-stone-400 block px-1">
           Santuario Terapéutico
         </span>
 
-        {/* TARJETA DEL ESPEJO DE RESCATE (ACCESO VOLUNTARIO 2C) */}
-        <div 
+        <div
           onClick={() => {
             setRescueModalMode(rescueLetter ? 'read' : 'write');
             setShowRescueMirror(true);
@@ -208,8 +210,8 @@ export default function PatientView({
                 </span>
               </div>
               <p className="text-[11px] text-stone-500 mt-0.5">
-                {rescueLetter 
-                  ? 'Palabras de tu yo en paz para cuando llegue la tormenta' 
+                {rescueLetter
+                  ? 'Palabras de tu yo en paz para cuando llegue la tormenta'
                   : 'Escríbele unas palabras a tu yo del futuro en tus días claros'}
               </p>
             </div>
@@ -217,9 +219,8 @@ export default function PatientView({
           <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-1 transition-transform" />
         </div>
 
-        {/* Fila de 2: Disolvedor ACT + Victorias */}
         <div className="grid grid-cols-2 gap-2.5">
-          <div 
+          <div
             onClick={() => setShowDissolver(true)}
             className="bg-white rounded-2xl p-3.5 border border-stone-200/80 shadow-xs cursor-pointer hover:border-teal-400 transition-all flex flex-col justify-between"
           >
@@ -232,7 +233,7 @@ export default function PatientView({
             </div>
           </div>
 
-          <div 
+          <div
             onClick={() => setShowVictories(true)}
             className="bg-white rounded-2xl p-3.5 border border-stone-200/80 shadow-xs cursor-pointer hover:border-amber-400 transition-all flex flex-col justify-between"
           >
@@ -246,9 +247,8 @@ export default function PatientView({
           </div>
         </div>
 
-        {/* Buzón de Sesión (Solo si sigue activo en terapia) */}
         {patientStatus !== 'graduated' && (
-          <div 
+          <div
             onClick={() => setShowSessionVault(true)}
             className="bg-white border border-stone-200/80 rounded-2xl p-3.5 shadow-xs cursor-pointer hover:border-amber-400 transition-all flex items-center justify-between group"
           >
@@ -270,7 +270,7 @@ export default function PatientView({
 
       {/* 5. Recursos de Bienestar */}
       <div className="grid grid-cols-2 gap-2.5">
-        <div 
+        <div
           onClick={() => setShowBreathing(true)}
           className="bg-white rounded-2xl p-3.5 border border-stone-200/80 shadow-xs cursor-pointer hover:border-teal-500/50 transition-all flex flex-col justify-between"
         >
@@ -283,7 +283,7 @@ export default function PatientView({
           </div>
         </div>
 
-        <div 
+        <div
           onClick={() => setShowAudios(true)}
           className="bg-white rounded-2xl p-3.5 border border-stone-200/80 shadow-xs cursor-pointer hover:border-purple-400/50 transition-all flex flex-col justify-between"
         >
@@ -298,7 +298,7 @@ export default function PatientView({
       </div>
 
       {/* 6. Cuaderno de Sabiduría */}
-      <div 
+      <div
         onClick={() => setShowEpiphanies(true)}
         className="bg-gradient-to-br from-[#fcfbf9] to-[#f5efe6] rounded-3xl p-5 border border-[#e8ded0] shadow-xs cursor-pointer hover:border-[#8c6d48]/50 transition-all group"
       >
@@ -315,7 +315,7 @@ export default function PatientView({
         </p>
       </div>
 
-      {/* 7. Check-in Emocional ("¿Cómo late tu corazón hoy?") */}
+      {/* 7. Check-in Emocional */}
       <section className="bg-white rounded-3xl p-5 border border-stone-200/80 shadow-xs space-y-3">
         <div className="flex justify-between items-center">
           <h3 className="text-sm font-medium text-stone-800 flex items-center gap-1.5">
@@ -324,7 +324,7 @@ export default function PatientView({
           </h3>
           <span className="text-[10px] text-stone-400">Toca para registrar</span>
         </div>
-        
+
         <div className="grid grid-cols-5 gap-2">
           {moods.map((m, idx) => {
             const Icon = m.icon;
@@ -334,8 +334,8 @@ export default function PatientView({
                 key={idx}
                 onClick={() => setActiveMoodModal(m)}
                 className={`flex flex-col items-center py-2.5 px-1 rounded-2xl border transition-all ${
-                  isSelected 
-                    ? `${m.color} border-current shadow-xs scale-105 font-medium` 
+                  isSelected
+                    ? `${m.color} border-current shadow-xs scale-105 font-medium`
                     : 'border-stone-100 bg-stone-50/50 text-stone-400 hover:bg-stone-50'
                 }`}
               >
@@ -360,12 +360,12 @@ export default function PatientView({
 
         <div className="space-y-2.5">
           {tasks.map(task => (
-            <div 
+            <div
               key={task.id}
               onClick={() => onToggleTask && onToggleTask(task.id)}
               className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 ${
-                task.done 
-                  ? 'bg-stone-100/60 border-stone-200 text-stone-400 line-through' 
+                task.done
+                  ? 'bg-stone-100/60 border-stone-200 text-stone-400 line-through'
                   : 'bg-white border-stone-200/80 text-stone-800 shadow-xs hover:border-emerald-500/30'
               }`}
             >
@@ -403,24 +403,25 @@ export default function PatientView({
       {showAudios && <AudioLibraryModal audioLibrary={audioLibrary} onClose={() => setShowAudios(false)} />}
       {showSOS && <GroundingSOSModal onClose={() => setShowSOS(false)} />}
       {showSessionVault && (
-        <SessionVaultModal 
-          topics={sessionTopics} 
+        <SessionVaultModal
+          topics={sessionTopics}
           onAddTopic={onAddSessionTopic}
           onDeleteTopic={onDeleteSessionTopic}
-          onClose={() => setShowSessionVault(false)} 
+          onClose={() => setShowSessionVault(false)}
         />
       )}
       {showEpiphanies && (
-        <EpiphanyVaultModal 
-          epiphanies={epiphanies}
-          onAddEpiphany={onAddEpiphany}
-          onClose={() => setShowEpiphanies(false)}
-        />
-      )}
+  <EpiphanyVaultModal
+    epiphanies={epiphanies}
+    onAddEpiphany={onAddEpiphany}
+    onClose={() => setShowEpiphanies(false)}
+    patientName={patientName}
+  />
+)}
       {showOracle && <OracleDeckModal onClose={() => setShowOracle(false)} />}
       {showDissolver && <ThoughtDissolverModal onClose={() => setShowDissolver(false)} />}
       {showVictories && (
-        <MicroVictoriesModal 
+        <MicroVictoriesModal
           victories={victories}
           onAddVictory={onAddVictory}
           onClose={() => setShowVictories(false)}
@@ -435,8 +436,8 @@ export default function PatientView({
         />
       )}
       {activeMoodModal && (
-        <MoodCheckInModal 
-          mood={activeMoodModal} 
+        <MoodCheckInModal
+          mood={activeMoodModal}
           onClose={() => setActiveMoodModal(null)}
           onSave={handleSaveMoodCheckIn}
         />
