@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
-import { X, Edit3, Save, Phone, AlertCircle, ShieldCheck, Mail } from 'lucide-react';
+import { X, Edit3, Save, Phone, AlertCircle, ShieldCheck, Mail, User } from 'lucide-react';
 
 export default function EditPatientModal({ patient, onClose, onUpdatePatient }) {
   const [formData, setFormData] = useState({
-    firstName: patient.firstName || patient.name?.split(' ')[0] || '',
-    paternalLastName: patient.paternalLastName || patient.name?.split(' ')[1] || '',
-    maternalLastName: patient.maternalLastName || patient.name?.split(' ')[2] || '',
+    firstName: patient.firstName || patient.first_name || patient.name?.split(' ')[0] || '',
+    paternalLastName: patient.paternalLastName || patient.paternal_last_name || patient.name?.split(' ')[1] || '',
+    maternalLastName: patient.maternalLastName || patient.maternal_last_name || patient.name?.split(' ')[2] || '',
     email: patient.email || '',
+    gender: patient.gender || 'Masculino', // <-- Sexo/Género
     age: patient.age || '',
     occupation: patient.occupation || '',
     phone: patient.phone || '',
-    emergencyContactName: patient.emergencyContact?.name || '',
-    emergencyContactRelation: patient.emergencyContact?.relation || '',
-    emergencyContactPhone: patient.emergencyContact?.phone || '',
+    emergencyContactName: patient.emergencyContact?.name || patient.emergency_contact?.name || '',
+    emergencyContactRelation: patient.emergencyContact?.relation || patient.emergency_contact?.relation || '',
+    emergencyContactPhone: patient.emergencyContact?.phone || patient.emergency_contact?.phone || '',
     motivo: patient.motivo || '',
     medication: patient.medication || '',
-    previousTherapy: patient.previousTherapy || 'No',
-    therapeuticGoals: patient.therapeuticGoals || '',
+    previousTherapy: patient.previousTherapy || patient.previous_therapy || 'No',
+    therapeuticGoals: patient.therapeuticGoals || patient.therapeutic_goals || '',
   });
 
   const handleChange = (field, value) => {
@@ -39,6 +40,7 @@ export default function EditPatientModal({ patient, onClose, onUpdatePatient }) 
       maternalLastName: formData.maternalLastName.trim(),
       name: fullName,
       email: formData.email.trim().toLowerCase(),
+      gender: formData.gender, // Guarda Masculino o Femenino
       age: formData.age,
       occupation: formData.occupation,
       phone: formData.phone,
@@ -120,6 +122,35 @@ export default function EditPatientModal({ patient, onClose, onUpdatePatient }) 
               </div>
             </div>
 
+            {/* SELECTOR DE SEXO / GÉNERO */}
+            <div>
+              <label className="text-stone-600 block mb-1 font-medium">Sexo / Género:</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleChange('gender', 'Masculino')}
+                  className={`py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                    formData.gender === 'Masculino'
+                      ? 'bg-[#253827] text-white border-[#253827] shadow-xs'
+                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  ♂ Masculino (Él)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChange('gender', 'Femenino')}
+                  className={`py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                    formData.gender === 'Femenino'
+                      ? 'bg-[#253827] text-white border-[#253827] shadow-xs'
+                      : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  ♀ Femenino (Ella)
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-stone-600 block mb-1 font-medium">Teléfono (WhatsApp)</label>
@@ -131,12 +162,9 @@ export default function EditPatientModal({ patient, onClose, onUpdatePatient }) 
                 />
               </div>
               <div>
-                <label className="text-stone-600 block mb-1 font-medium flex items-center gap-1">
-                  <Mail className="w-3 h-3 text-emerald-700" /> Correo de Acceso
-                </label>
+                <label className="text-stone-600 block mb-1 font-medium">Correo de Acceso</label>
                 <input 
                   type="email"
-                  required
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#436146]"

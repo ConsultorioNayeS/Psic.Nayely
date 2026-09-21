@@ -31,8 +31,8 @@ export default function MoodCheckInModal({ mood, onClose, onSave }) {
   const Icon = mood.icon;
 
   return (
-    <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-      <div className="w-full max-w-md bg-white rounded-t-[32px] sm:rounded-[32px] p-6 space-y-5 shadow-2xl border border-stone-200">
+  <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+    <div className="w-full max-w-md bg-white rounded-[32px] sm:rounded-[36px] p-6 space-y-5 shadow-2xl border border-stone-200">
         
         {/* Cabecera */}
         <div className="flex justify-between items-center">

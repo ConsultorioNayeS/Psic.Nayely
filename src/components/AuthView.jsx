@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
-import { ShieldCheck, ArrowRight, Phone, Lock, Heart } from 'lucide-react';
+import { ShieldCheck, ArrowRight, Phone, Lock, Heart, Loader2 } from 'lucide-react';
 
-export default function AuthView({ onLoginWithPin, therapistPin = '998877' }) {
-  // ESTADOS 100% VACÍOS
+export default function AuthView({ onLoginWithPin }) {
   const [identifier, setIdentifier] = useState('');
   const [pin, setPin] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handlePinChange = (e) => {
-    const value = e.target.value.replace(/\D/g, ''); // Solo dígitos
+    const value = e.target.value.replace(/\D/g, '');
     if (value.length <= 6) {
       setPin(value);
       setErrorMessage('');
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!identifier.trim()) {
       setErrorMessage('Por favor ingresa tu número de teléfono o usuario.');
@@ -26,9 +26,13 @@ export default function AuthView({ onLoginWithPin, therapistPin = '998877' }) {
       return;
     }
 
-    const success = onLoginWithPin(identifier.trim(), pin);
+    setIsVerifying(true);
+    setErrorMessage('');
+
+    const success = await onLoginWithPin(identifier.trim(), pin);
     if (!success) {
-      setErrorMessage('Teléfono o PIN incorrecto. Verifica tus datos con la Psic. Nayely.');
+      setErrorMessage('Usuario o PIN incorrecto. Si eres paciente, verifica tus datos con la Psicóloga Nayely.');
+      setIsVerifying(false);
     }
   };
 
@@ -48,14 +52,13 @@ export default function AuthView({ onLoginWithPin, therapistPin = '998877' }) {
             <h1 className="text-xl font-light text-stone-800 mt-2">
               Psic. <span className="font-semibold text-stone-900">Nayely</span>
             </h1>
-            <p className="text-xs text-stone-400 mt-0.5">Ingreso con PIN de Seguridad</p>
+            <p className="text-xs text-stone-400 mt-0.5">Acceso Protegido por PIN</p>
           </div>
         </div>
 
-        {/* Formulario con bloqueo de autocompletado */}
+        {/* Formulario */}
         <form onSubmit={handleSubmit} autoComplete="off" className="w-full space-y-4 text-xs">
           
-          {/* Teléfono o Usuario */}
           <div className="space-y-1.5 text-left">
             <label className="font-semibold text-stone-700 block text-[11px] uppercase tracking-wider">
               Tu Teléfono o Usuario:
@@ -67,22 +70,22 @@ export default function AuthView({ onLoginWithPin, therapistPin = '998877' }) {
                 name="clinical_user_id"
                 autoComplete="off"
                 required
+                disabled={isVerifying}
                 placeholder="Ej: 55 1234 5678"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-stone-200 bg-stone-50/50 text-stone-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#436146] transition-all"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-stone-200 bg-stone-50/50 text-stone-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#436146] transition-all disabled:opacity-50"
               />
             </div>
           </div>
 
-          {/* PIN de 6 Dígitos */}
           <div className="space-y-2 text-left">
             <div className="flex justify-between items-center text-[11px]">
               <label className="font-semibold text-stone-700 uppercase tracking-wider">
                 PIN de 6 dígitos:
               </label>
-              <span className="text-stone-400 text-[10px]">
-                {pin.length} de 6 números
+              <span className="text-stone-400 text-[10px] font-mono">
+                {pin.length} de 6
               </span>
             </div>
 
@@ -95,15 +98,15 @@ export default function AuthView({ onLoginWithPin, therapistPin = '998877' }) {
                 autoComplete="one-time-code"
                 maxLength={6}
                 required
+                disabled={isVerifying}
                 placeholder="••••••"
                 value={pin}
                 onChange={handlePinChange}
                 style={{ WebkitTextSecurity: 'disc' }}
-                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-stone-200 bg-stone-50/50 text-stone-800 text-center tracking-[0.6em] font-mono text-base font-bold focus:outline-none focus:ring-2 focus:ring-[#436146] transition-all"
+                className="w-full pl-10 pr-4 py-3 rounded-2xl border border-stone-200 bg-stone-50/50 text-stone-800 text-center tracking-[0.6em] font-mono text-base font-bold focus:outline-none focus:ring-2 focus:ring-[#436146] transition-all disabled:opacity-50"
               />
             </div>
 
-            {/* Visualizador de Casillas (Solo se llenan conforme tecleas) */}
             <div className="flex justify-between gap-1.5 pt-1">
               {[0, 1, 2, 3, 4, 5].map((idx) => (
                 <div 
@@ -124,10 +127,20 @@ export default function AuthView({ onLoginWithPin, therapistPin = '998877' }) {
 
           <button
             type="submit"
-            className="w-full py-3.5 bg-[#436146] hover:bg-[#253827] text-white rounded-2xl font-medium text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer pt-3"
+            disabled={isVerifying}
+            className="w-full py-3.5 bg-[#436146] hover:bg-[#253827] text-white rounded-2xl font-medium text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer pt-3 tap-bounce disabled:opacity-60"
           >
-            <span>Ingresar a mi Espacio Seguro</span>
-            <ArrowRight className="w-4 h-4" />
+            {isVerifying ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Verificando credenciales...</span>
+              </>
+            ) : (
+              <>
+                <span>Ingresar a mi Espacio Seguro</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 

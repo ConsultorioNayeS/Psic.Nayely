@@ -2,35 +2,59 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Phone, PhoneCall, ShieldCheck, 
   MessageCircle, Plus, Trash2, CheckCircle2, FileText, 
-  Target, Inbox, Sparkles, User, AlertCircle, Edit3, 
-  Lock, RefreshCw, KeyRound 
+  Target, Inbox, Sparkles, User, Edit3, 
+  RefreshCw, KeyRound, Copy, CheckCheck,
+  Calendar, Heart, Activity, ArrowRight, Clock, AlertTriangle, BookOpen
 } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
+import ClinicalReportModal from './ClinicalReportModal';
 
 export default function PatientRecordModal({ 
   patient, 
   tasks = [],
   sessionTopics = [],
   epiphanies = [],
+  clinicalNotes = [],
+  completedSessionsCount = 0,
+  onAddClinicalNote,
   onClose, 
   onAddTask,
   onDeleteTask,
   onToggleTask,
   onAddEpiphany,
-  onUpdatePatient
+  onUpdatePatient,
+  onDeletePatient
 }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'notes' | 'tasks' | 'vault' | 'dossier'
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [pinCopiedMessage, setPinCopiedMessage] = useState(false);
+  const [copiedWhatsApp, setCopiedWhatsApp] = useState(false);
+  const [confirmDeletePatient, setConfirmDeletePatient] = useState(false);
 
-  // Estados para notas, tareas y epifanías
+  const [localStatus, setLocalStatus] = useState(patient.status || 'active');
+
+  useEffect(() => {
+    setLocalStatus(patient.status || 'active');
+  }, [patient.status]);
+
   const [newNote, setNewNote] = useState('');
-  const [notes, setNotes] = useState(patient.clinicalNotes || []);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskTag, setNewTaskTag] = useState('Calma');
   const [newEpiphanyText, setNewEpiphanyText] = useState('');
 
-  // GENERACIÓN AUTOMÁTICA DE PIN SI EL PACIENTE NO TIENE UNO
+  const emergencyData = patient.emergencyContact || patient.emergency_contact || {};
+  const emergencyName = emergencyData.name || 'No registrado';
+  const emergencyRelation = emergencyData.relation || 'Familiar';
+  const emergencyPhone = emergencyData.phone || '';
+
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.done).length;
+  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 100;
+
+  const recentMood = patient.moodCheckIns && patient.moodCheckIns.length > 0 ? patient.moodCheckIns[0] : null;
+  const latestNote = clinicalNotes.length > 0 ? clinicalNotes[0] : null;
+
   useEffect(() => {
     if (!patient.pin && onUpdatePatient) {
       const generatedPin = Math.floor(100000 + Math.random() * 900000).toString();
@@ -38,7 +62,6 @@ export default function PatientRecordModal({
     }
   }, [patient.pin]);
 
-  // Función para regenerar un PIN único e irrepetible en 1 clic
   const handleRegenerateUniquePin = () => {
     const newUniquePin = Math.floor(100000 + Math.random() * 900000).toString();
     if (onUpdatePatient) {
@@ -48,15 +71,23 @@ export default function PatientRecordModal({
     setTimeout(() => setPinCopiedMessage(false), 2500);
   };
 
-  // Estadísticas de tareas
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.done).length;
-  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const handleStatusChange = (newStatus) => {
+    setLocalStatus(newStatus);
+    if (onUpdatePatient) {
+      onUpdatePatient({ ...patient, status: newStatus });
+    }
+  };
 
-  const handleAddNote = (e) => {
+  const handleAddNoteSubmit = (e) => {
     e.preventDefault();
     if (!newNote.trim()) return;
-    setNotes([{ date: 'Sesión de Hoy', text: newNote.trim() }, ...notes]);
+    if (onAddClinicalNote) {
+      onAddClinicalNote({
+        patientId: patient.id,
+        text: newNote.trim(),
+        date: new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+      });
+    }
     setNewNote('');
   };
 
@@ -66,6 +97,7 @@ export default function PatientRecordModal({
     if (onAddTask) {
       onAddTask({
         id: Date.now(),
+        patientId: patient.id,
         title: newTaskTitle.trim(),
         tag: newTaskTag,
         done: false
@@ -81,9 +113,9 @@ export default function PatientRecordModal({
       onAddEpiphany({
         id: Date.now(),
         insight: newEpiphanyText.trim(),
-        context: 'Fijada en consulta por la Psic. Nayely',
+        context: 'Fijada en consulta por la Psicóloga Nayely',
         date: 'Hoy',
-        author: 'Psic. Nayely'
+        author: 'Psicóloga Nayely'
       });
     }
     setNewEpiphanyText('');
@@ -94,376 +126,388 @@ export default function PatientRecordModal({
     : 'PA';
 
   const currentPin = patient.pin || '482910';
+  const firstName = patient.firstName || patient.first_name || patient.name?.split(' ')[0] || 'Paciente';
+  const cleanPhone = patient.phone ? patient.phone.replace(/\D/g, '') : '';
+
+  const pinWhatsAppText = `🌿 *Hola ${firstName}*, te saluda la *Psicóloga Nayely* 🤍\n\nEste es tu acceso personal y confidencial a tu app terapéutica:\n📱 *Tu Teléfono:* ${patient.phone || ''}\n🔑 *Tu PIN seguro:* *${currentPin}*\n\nPuedes ingresar cuando lo necesites para realizar tus ejercicios, respiración y tu cuaderno de sabiduría ✨🕊️`;
+
+  const handleSendPinWhatsApp = () => {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const encoded = encodeURIComponent(pinWhatsAppText);
+    const url = isMobile 
+      ? `whatsapp://send?phone=${cleanPhone}&text=${encoded}`
+      : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`;
+    window.open(url, '_blank');
+  };
+
+  const handleCopyPinText = () => {
+    navigator.clipboard.writeText(pinWhatsAppText);
+    setCopiedWhatsApp(true);
+    setTimeout(() => setCopiedWhatsApp(false), 2000);
+  };
 
   return (
-    <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn select-none">
-      
-      {/* Contenedor del Expediente Ejecutivo */}
-      <div className="w-full max-w-md bg-[#faf8f5] rounded-t-[40px] sm:rounded-[40px] max-h-[92vh] flex flex-col shadow-2xl border border-stone-200/80 overflow-hidden ring-1 ring-black/5">
+    // CENTRADO ABSOLUTO EN TODAS LAS PANTALLAS (items-center en lugar de items-end)
+    <div className="fixed inset-0 bg-stone-900/65 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 animate-fadeIn select-none">
+      <div className="w-full max-w-md bg-[#faf8f5] rounded-[32px] sm:rounded-[36px] max-h-[90vh] flex flex-col shadow-2xl border border-stone-200/80 overflow-hidden">
         
-        {/* ================= HERO HEADER ================= */}
-        <div className="p-6 bg-white border-b border-stone-200/70 relative">
+        {/* ================= CABECERA DEL EXPEDIENTE ================= */}
+        <div className="p-4 sm:p-5 bg-white border-b border-stone-200/70 relative">
           
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-bold tracking-widest text-[#436146] uppercase bg-emerald-50 border border-emerald-200/60 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-2xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" /> Expediente • Psic. Nayely
+          <div className="flex justify-between items-center mb-2.5">
+            <span className="text-[10px] font-bold tracking-[0.18em] text-[#335236] uppercase glass-pill px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-inner-light">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" /> Expediente Clínico Oficial
             </span>
 
             <div className="flex items-center gap-1.5">
               <button
-                onClick={() => setShowEditModal(true)}
-                className="px-2.5 py-1 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                title="Modificar datos del paciente"
+                onClick={() => setShowReportModal(true)}
+                className="px-2.5 py-1 bg-[#2a422d] hover:bg-[#1d2f20] text-white rounded-xl text-[11px] font-semibold flex items-center gap-1 shadow-sm tap-bounce cursor-pointer transition-all"
               >
-                <Edit3 className="w-3 h-3 text-[#436146]" /> Editar Ficha
+                <FileText className="w-3 h-3 text-emerald-300" /> Generar Informe
+              </button>
+
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="p-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs tap-bounce cursor-pointer"
+                title="Editar datos del paciente"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-[#335236]" />
               </button>
 
               <button 
-                onClick={onClose}
-                className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500 hover:text-stone-800 text-xs transition-colors cursor-pointer"
+                onClick={onClose} 
+                className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500 tap-bounce cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Tarjeta de Identidad */}
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-3xl bg-gradient-to-br from-[#436146] to-[#253827] text-white flex items-center justify-center text-base font-semibold shadow-md border border-white/20 flex-shrink-0">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#2a422d] text-white flex items-center justify-center text-sm font-serif shadow-luxe flex-shrink-0">
               {initials}
             </div>
 
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-semibold text-stone-900 truncate tracking-tight">
-                {patient.name}
-              </h2>
-
-              {/* Insignias con Selector de Estatus Clínico */}
-              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-stone-500">
-                <span className="font-medium text-stone-700">{patient.age} años</span>
-                <span>•</span>
-                <span className="truncate">{patient.occupation || 'Sin ocupación'}</span>
-                <span>•</span>
-
+              <div className="flex items-center justify-between gap-1">
+                <h2 className="text-base font-serif text-stone-900 truncate">
+                  {patient.name}
+                </h2>
                 <select
-                  value={patient.status || 'active'}
-                  onChange={(e) => {
-                    const newStatus = e.target.value;
-                    if (onUpdatePatient) {
-                      onUpdatePatient({ ...patient, status: newStatus });
-                    }
-                  }}
-                  className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border cursor-pointer focus:outline-none ${
-                    (patient.status || 'active') === 'active'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                      : patient.status === 'graduated'
-                        ? 'bg-amber-100 text-amber-900 border-amber-300'
+                  value={localStatus}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  className={`text-[9px] px-2 py-0.5 rounded-md font-semibold border cursor-pointer focus:outline-none transition-colors ${
+                    localStatus === 'active'
+                      ? 'bg-emerald-100/80 text-[#2a422d] border-emerald-300'
+                      : localStatus === 'graduated'
+                        ? 'bg-amber-100 text-[#7a5522] border-amber-300'
                         : 'bg-rose-100 text-rose-800 border-rose-200'
                   }`}
                 >
-                  <option value="active">Activo en Terapia</option>
-                  <option value="graduated">Alta Terapéutica (Graduado)</option>
-                  <option value="suspended">Baja / Acceso Suspendido</option>
+                  <option value="active">Activo</option>
+                  <option value="graduated">Alta</option>
+                  <option value="suspended">Baja</option>
                 </select>
               </div>
 
-              {/* Teléfono y WhatsApp */}
+              <div className="flex items-center gap-1.5 text-[11px] text-stone-500 mt-0.5">
+                <span>{patient.age} años</span>
+                <span>•</span>
+                <span className="truncate">{patient.occupation || 'Sin ocupación'}</span>
+              </div>
+
               {patient.phone && (
-                <div className="flex items-center gap-3 mt-2 text-xs">
+                <div className="flex items-center gap-2 mt-1.5 text-xs">
                   <a 
                     href={`tel:${patient.phone}`}
-                    className="text-stone-600 hover:text-stone-900 flex items-center gap-1 font-medium bg-stone-100 hover:bg-stone-200 px-2.5 py-1 rounded-xl transition-colors"
+                    className="text-stone-600 hover:text-stone-900 flex items-center gap-1 font-medium bg-stone-100 hover:bg-stone-200 px-2 py-0.5 rounded-lg text-[11px] transition-colors"
                   >
-                    <Phone className="w-3 h-3 text-[#436146]" /> {patient.phone}
+                    <Phone className="w-3 h-3 text-[#335236]" /> {patient.phone}
                   </a>
-                  <a 
-                    href={`https://wa.me/${patient.phone.replace(/\D/g, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[#25D366] hover:text-[#128C7E] flex items-center gap-1 font-semibold bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-xl transition-colors"
+                  <button 
+                    onClick={handleSendPinWhatsApp}
+                    className="text-[#128C7E] hover:text-[#0b6b5d] flex items-center gap-1 font-semibold bg-[#25D366]/10 hover:bg-[#25D366]/20 px-2 py-0.5 rounded-lg transition-colors tap-bounce cursor-pointer border border-[#25D366]/20 text-[10px]"
                   >
-                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
-                  </a>
+                    <MessageCircle className="w-3 h-3 text-[#25D366]" /> PIN WhatsApp
+                  </button>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Selector de Pestañas Apple */}
-          <div className="mt-5 p-1 bg-stone-100/90 rounded-2xl flex text-xs font-medium text-stone-600">
+          {/* Pestañas Optimizadas: Nunca se cortan */}
+          <div className="mt-3.5 p-1 bg-stone-100 rounded-xl flex text-[11px] font-medium text-stone-600">
             <button
-              onClick={() => setActiveTab('overview')}
-              className={`flex-1 py-2 rounded-xl text-center transition-all cursor-pointer ${
-                activeTab === 'overview' 
-                  ? 'bg-white text-stone-900 font-semibold shadow-xs' 
-                  : 'hover:text-stone-900'
+              onClick={() => setActiveTab('dashboard')}
+              className={`flex-1 py-1 px-1.5 rounded-lg text-center transition-all tap-bounce cursor-pointer ${
+                activeTab === 'dashboard' ? 'bg-white text-stone-900 font-bold shadow-xs' : 'hover:text-stone-900'
               }`}
             >
-              Ficha & SOS
+              Panorama
             </button>
             <button
               onClick={() => setActiveTab('notes')}
-              className={`flex-1 py-2 rounded-xl text-center transition-all cursor-pointer ${
-                activeTab === 'notes' 
-                  ? 'bg-white text-stone-900 font-semibold shadow-xs' 
-                  : 'hover:text-stone-900'
+              className={`flex-1 py-1 px-1.5 rounded-lg text-center transition-all tap-bounce cursor-pointer ${
+                activeTab === 'notes' ? 'bg-white text-stone-900 font-bold shadow-xs' : 'hover:text-stone-900'
               }`}
             >
-              Evolución
+              Evolución ({clinicalNotes.length})
             </button>
             <button
               onClick={() => setActiveTab('tasks')}
-              className={`flex-1 py-2 rounded-xl text-center transition-all cursor-pointer ${
-                activeTab === 'tasks' 
-                  ? 'bg-white text-stone-900 font-semibold shadow-xs' 
-                  : 'hover:text-stone-900'
+              className={`flex-1 py-1 px-1.5 rounded-lg text-center transition-all tap-bounce cursor-pointer ${
+                activeTab === 'tasks' ? 'bg-white text-stone-900 font-bold shadow-xs' : 'hover:text-stone-900'
               }`}
             >
-              Tareas ({completedTasks}/{totalTasks})
+              Tareas ({completedTasks})
             </button>
             <button
               onClick={() => setActiveTab('vault')}
-              className={`flex-1 py-2 rounded-xl text-center transition-all cursor-pointer ${
-                activeTab === 'vault' 
-                  ? 'bg-white text-stone-900 font-semibold shadow-xs' 
-                  : 'hover:text-stone-900'
+              className={`flex-1 py-1 px-1.5 rounded-lg text-center transition-all tap-bounce cursor-pointer ${
+                activeTab === 'vault' ? 'bg-white text-stone-900 font-bold shadow-xs' : 'hover:text-stone-900'
               }`}
             >
               Buzón ({sessionTopics.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('dossier')}
+              className={`flex-1 py-1 px-1.5 rounded-lg text-center transition-all tap-bounce cursor-pointer ${
+                activeTab === 'dossier' ? 'bg-white text-stone-900 font-bold shadow-xs' : 'hover:text-stone-900'
+              }`}
+            >
+              Ficha
             </button>
           </div>
 
         </div>
 
-        {/* ================= CUERPO DEL EXPEDIENTE ================= */}
-        <div className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+        {/* ================= CONTENIDO DEL EXPEDIENTE ================= */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1 text-xs no-scrollbar">
           
-          {/* PESTAÑA 1: FICHA, CONTACTO SOS Y PIN AUTOMÁTICO */}
-          {activeTab === 'overview' && (
-            <div className="space-y-4 animate-fadeIn">
+          {/* =========================================================
+              1. PANORAMA 360°: LA RADIOGRAFÍA RÁPIDA DE NAYELY
+             ========================================================= */}
+          {activeTab === 'dashboard' && (
+            <div className="space-y-3 animate-fadeIn">
               
-              {/* =========================================================================
-                  TARJETA DEL PIN AUTOMÁTICO IRREPETIBLE (CONTROL DE NAYELY)
-                 ========================================================================= */}
-              <div className="bg-gradient-to-br from-emerald-50/90 to-teal-50/60 p-4 rounded-3xl border border-emerald-200 shadow-xs space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#436146] flex items-center gap-1.5">
-                    <KeyRound className="w-3.5 h-3.5 text-emerald-700" /> Clave de Ingreso del Paciente
+              {/* Tarjetas de Métricas Rápidas */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="glass-panel p-2.5 rounded-2xl border border-stone-200/80 shadow-ambient text-center">
+                  <Calendar className="w-4 h-4 text-[#335236] mx-auto mb-0.5" />
+                  <span className="text-sm font-serif font-bold text-stone-900 block">{completedSessionsCount}</span>
+                  <span className="text-[9px] text-stone-500 font-light">Sesiones Hechas</span>
+                </div>
+
+                <div className="glass-panel p-2.5 rounded-2xl border border-stone-200/80 shadow-ambient text-center">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 mx-auto mb-0.5" />
+                  <span className="text-sm font-serif font-bold text-stone-900 block">{progressPercent}%</span>
+                  <span className="text-[9px] text-stone-500 font-light">Apego a Tareas</span>
+                </div>
+
+                <div className="glass-panel p-2.5 rounded-2xl border border-stone-200/80 shadow-ambient text-center">
+                  <Heart className="w-4 h-4 text-rose-500 mx-auto mb-0.5" />
+                  <span className="text-sm font-serif font-bold text-stone-900 block">
+                    {recentMood ? recentMood.mood : 'Neutro'}
                   </span>
+                  <span className="text-[9px] text-stone-500 font-light">Último Pulso</span>
+                </div>
+              </div>
 
-                  {/* Botón WhatsApp */}
-                  <button
-                    onClick={() => {
-                      const firstName = patient.name ? patient.name.split(' ')[0] : 'Paciente';
-                      const cleanPhone = patient.phone ? patient.phone.replace(/\D/g, '') : '';
-                      const msg = `Hola ${firstName}, te saluda la Psic. Nayely. Tu clave privada de acceso a la app es: *${currentPin}*. Ingresa con tu número de teléfono: ${patient.phone || ''}.`;
-                      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-                    }}
-                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-xl font-medium flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
-                  >
-                    <MessageCircle className="w-3 h-3" /> Enviar por WhatsApp
-                  </button>
+              {/* Temas que el Paciente Preparó para Consulta */}
+              <div className="glass-panel p-3.5 rounded-2xl border border-amber-200/80 shadow-ambient space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-stone-800 flex items-center gap-1.5 text-xs font-serif">
+                    <Inbox className="w-3.5 h-3.5 text-amber-700" /> Temas Depositados en Buzón ({sessionTopics.length})
+                  </span>
+                  <span className="text-[9px] text-[#7a5522] font-medium">Próxima sesión</span>
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <div>
-                    <span className="text-[10px] text-stone-500 block">PIN de 6 Dígitos (Generado Automáticamente):</span>
-                    <span className="text-xl font-mono font-bold text-stone-900 tracking-[0.25em] mt-0.5 block">
-                      {currentPin}
-                    </span>
+                {sessionTopics.length === 0 ? (
+                  <p className="text-stone-400 text-[11px] italic font-light">Sin temas pendientes en buzón.</p>
+                ) : (
+                  <div className="space-y-1 pt-0.5">
+                    {sessionTopics.slice(0, 3).map(topic => (
+                      <div key={topic.id} className="p-2 rounded-xl bg-white border border-stone-200/70 text-[11px] flex justify-between items-start gap-2">
+                        <span className="text-stone-800 font-light leading-relaxed">{topic.text}</span>
+                        <span className="bg-stone-100 text-stone-600 px-1.5 py-0.2 rounded text-[9px] font-semibold flex-shrink-0">
+                          {topic.tag}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-
-                  {/* Botón para regenerar PIN único sin pensar */}
-                  <button
-                    type="button"
-                    onClick={handleRegenerateUniquePin}
-                    className="text-[11px] bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-                    title="Generar un nuevo PIN aleatorio irrepetible"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                    <span>Regenerar Nuevo PIN</span>
-                  </button>
-                </div>
-
-                {pinCopiedMessage && (
-                  <p className="text-[10px] text-emerald-700 font-semibold animate-fadeIn">
-                    ✓ ¡Nuevo PIN generado y asignado al expediente!
-                  </p>
                 )}
               </div>
 
-              {/* Contacto de Emergencia NOM-004 */}
-              <div className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-xs space-y-3">
+              {/* Última Nota Clínica de Nayely */}
+              <div className="glass-panel p-3.5 rounded-2xl border border-stone-200/80 shadow-ambient space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-rose-700 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-rose-600" /> Resguardo / Contacto de Emergencia
+                  <span className="font-semibold text-stone-800 flex items-center gap-1.5 text-xs font-serif">
+                    <FileText className="w-3.5 h-3.5 text-[#335236]" /> Última Nota Registrada
                   </span>
-
-                  {patient.emergencyContact?.phone && (
-                    <a 
-                      href={`tel:${patient.emergencyContact.phone.replace(/\D/g, '')}`}
-                      className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[11px] px-3 py-1 rounded-xl font-semibold flex items-center gap-1 transition-colors"
-                    >
-                      <PhoneCall className="w-3 h-3" /> Llamar Ahora
-                    </a>
-                  )}
+                  <button 
+                    onClick={() => setActiveTab('notes')}
+                    className="text-[10px] text-[#335236] font-semibold hover:underline flex items-center gap-0.5"
+                  >
+                    Ver todas ({clinicalNotes.length}) <ArrowRight className="w-3 h-3" />
+                  </button>
                 </div>
 
-                <div className="flex items-center gap-3 pt-1">
-                  <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-700 font-semibold flex-shrink-0">
-                    <User className="w-5 h-5" />
+                {latestNote ? (
+                  <div className="p-2.5 bg-white rounded-xl border border-stone-200/70 space-y-1">
+                    <div className="flex justify-between items-center text-[9px] text-stone-400">
+                      <span className="bg-emerald-50 text-[#2a422d] font-bold px-1.5 py-0.2 rounded">{latestNote.date}</span>
+                      <span>Nota Oficial</span>
+                    </div>
+                    <p className="text-xs text-stone-700 leading-relaxed font-serif italic pt-0.5">
+                      “{latestNote.text}”
+                    </p>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-stone-900">
-                      {patient.emergencyContact?.name || 'No registrado'}
-                    </h4>
-                    <span className="text-[11px] text-stone-500 block">
-                      Parentesco: <strong className="text-stone-700">{patient.emergencyContact?.relation || 'Familiar'}</strong> • Tel: {patient.emergencyContact?.phone || 'Sin número'}
-                    </span>
+                ) : (
+                  <p className="text-stone-400 text-[11px] italic font-light">Sin notas de evolución previas.</p>
+                )}
+              </div>
+
+              {/* Acceso Rápido a Contacto de Resguardo */}
+              {emergencyPhone && (
+                <div className="bg-rose-50/80 border border-rose-200/80 p-3 rounded-2xl flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
+                      <PhoneCall className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-rose-800 font-bold uppercase block">Contacto de Resguardo</span>
+                      <span className="text-[11px] text-stone-800 font-medium">{emergencyName} ({emergencyRelation})</span>
+                    </div>
                   </div>
+                  <a
+                    href={`tel:${emergencyPhone.replace(/\D/g, '')}`}
+                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-semibold tap-bounce cursor-pointer shadow-xs"
+                  >
+                    Llamar SOS
+                  </a>
                 </div>
-              </div>
-
-              {/* Motivo de Consulta Principal */}
-              <div className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-xs space-y-1.5">
-                <span className="font-semibold text-stone-400 block text-[10px] uppercase tracking-wider">
-                  Motivo de Consulta:
-                </span>
-                <p className="text-stone-800 leading-relaxed text-xs">
-                  {patient.motivo || 'Primera entrevista diagnóstica.'}
-                </p>
-              </div>
-
-              {/* Objetivos Terapéuticos */}
-              <div className="bg-gradient-to-br from-[#fbfaf8] to-[#f4f7f4] p-4 rounded-3xl border border-emerald-100 shadow-xs space-y-2">
-                <span className="font-semibold text-[#436146] flex items-center gap-1.5 text-[10px] uppercase tracking-wider">
-                  <Target className="w-3.5 h-3.5" /> Objetivos Terapéuticos Acordados
-                </span>
-                <p className="text-stone-700 leading-relaxed text-xs font-light">
-                  {patient.therapeuticGoals || 'Regulación emocional, autocuidado y fomento de la introspección.'}
-                </p>
-              </div>
-
-              {/* Antecedentes Médicos */}
-              <div className="grid grid-cols-2 gap-3 text-[11px]">
-                <div className="bg-white p-3.5 rounded-3xl border border-stone-200/80">
-                  <span className="text-stone-400 block text-[10px] uppercase font-semibold">Terapia Previa:</span>
-                  <span className="text-stone-800 font-medium">{patient.previousTherapy || 'No'}</span>
-                </div>
-                <div className="bg-white p-3.5 rounded-3xl border border-stone-200/80">
-                  <span className="text-stone-400 block text-[10px] uppercase font-semibold">Medicación:</span>
-                  <span className="text-stone-800 font-medium truncate block">{patient.medication || 'Ninguna'}</span>
-                </div>
-              </div>
+              )}
 
             </div>
           )}
 
-          {/* PESTAÑA 2: NOTAS DE EVOLUCIÓN */}
+          {/* =========================================================
+              2. NOTAS DE EVOLUCIÓN HISTÓRICAS
+             ========================================================= */}
           {activeTab === 'notes' && (
-            <div className="space-y-4 animate-fadeIn">
-              <form onSubmit={handleAddNote} className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-xs space-y-3">
-                <label className="font-semibold text-stone-700 text-[11px] uppercase tracking-wider block flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-[#436146]" /> Nueva Nota de Evolución:
+            <div className="space-y-3 animate-fadeIn">
+              <form onSubmit={handleAddNoteSubmit} className="glass-panel p-3.5 rounded-2xl border border-stone-200/80 shadow-ambient space-y-2">
+                <label className="font-semibold text-stone-800 text-[11px] uppercase tracking-wider block flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-[#335236]" /> Anexar Nota Manual de Sesión:
                 </label>
                 <textarea 
                   rows="3"
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Escribe avances clínicos, hipótesis o intervenciones..."
-                  className="w-full p-3 rounded-2xl border border-stone-200 bg-stone-50/50 focus:outline-none focus:ring-2 focus:ring-[#436146] text-stone-800 text-xs resize-none placeholder-stone-400"
+                  placeholder="Describe avances, hipótesis o intervenciones de la sesión..."
+                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-white text-stone-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#335236]/30 font-light resize-none leading-relaxed"
                 />
                 <button 
                   type="submit"
-                  className="w-full py-2.5 bg-[#436146] hover:bg-[#253827] text-white rounded-xl font-medium shadow-xs transition-all flex items-center justify-center gap-1.5 text-xs cursor-pointer"
+                  className="w-full py-2 bg-[#2a422d] hover:bg-[#1d2f20] text-white rounded-xl font-medium shadow-sm transition-all flex items-center justify-center gap-1.5 text-xs tap-bounce cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Registrar al Expediente
+                  <Plus className="w-3.5 h-3.5" /> Guardar en Expediente
                 </button>
               </form>
 
-              <div className="space-y-3 pt-2">
+              <div className="space-y-2 pt-1">
                 <span className="font-semibold text-stone-400 text-[10px] uppercase tracking-wider block px-1">
-                  Historial de Sesiones Registradas ({notes.length})
+                  Historial de Notas ({clinicalNotes.length})
                 </span>
 
-                {notes.map((note, index) => (
-                  <div key={index} className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-xs space-y-1.5">
-                    <div className="flex justify-between items-center text-[10px]">
-                      <span className="font-semibold text-[#436146] bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
-                        {note.date}
-                      </span>
-                      <span className="text-stone-400">Nota Privada</span>
-                    </div>
-                    <p className="text-stone-800 leading-relaxed pt-1 text-xs font-light">
-                      {note.text}
-                    </p>
+                {clinicalNotes.length === 0 ? (
+                  <div className="p-5 text-center text-xs text-stone-400 bg-white rounded-2xl border border-dashed border-stone-200 font-light">
+                    No hay notas registradas.
                   </div>
-                ))}
+                ) : (
+                  clinicalNotes.map((note, idx) => (
+                    <div key={note.id || idx} className="glass-panel p-3 rounded-2xl border border-stone-200/80 shadow-ambient space-y-1">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="font-semibold text-[#2a422d] bg-emerald-50 px-2 py-0.2 rounded-md border border-emerald-100">
+                          {note.date}
+                        </span>
+                        <span className="text-stone-400 font-mono">Nota #{clinicalNotes.length - idx}</span>
+                      </div>
+                      <p className="text-xs text-stone-800 leading-relaxed pt-0.5 font-serif whitespace-pre-line">
+                        {note.text}
+                      </p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
 
-          {/* PESTAÑA 3: TAREAS */}
+          {/* =========================================================
+              3. TAREAS Y EJERCICIOS
+             ========================================================= */}
           {activeTab === 'tasks' && (
-            <div className="space-y-4 animate-fadeIn">
-              <div className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-xs space-y-2">
+            <div className="space-y-3 animate-fadeIn">
+              <div className="glass-panel p-3 rounded-2xl border border-stone-200/80 shadow-ambient space-y-1.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-stone-800 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Cumplimiento de Ejercicios
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Cumplimiento Extramuros
                   </span>
-                  <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    {completedTasks} de {totalTasks} ({progressPercent}%)
+                  <span className="font-bold text-[#2a422d] bg-emerald-50 px-2 py-0.5 rounded-full text-[11px]">
+                    {completedTasks} de {totalTasks} ({progressPercent}% apego)
                   </span>
                 </div>
-                <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#436146] h-full rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+                <div className="w-full bg-stone-200/60 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-[#2a422d] h-full rounded-full transition-all duration-500" style={{ width: `${progressPercent}%` }} />
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {tasks.map(task => (
-                  <div key={task.id} className="p-3.5 rounded-2xl border bg-white border-stone-200/80 shadow-xs flex items-start justify-between gap-3">
-                    <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-0.5 cursor-pointer">
-                      <CheckCircle2 className={`w-5 h-5 ${task.done ? 'text-emerald-600' : 'text-stone-300'}`} />
+                  <div key={task.id} className="p-3 rounded-xl border bg-white border-stone-200/80 shadow-ambient flex items-start justify-between gap-2.5">
+                    <button onClick={() => onToggleTask && onToggleTask(task.id)} className="mt-0.5 tap-bounce cursor-pointer">
+                      <CheckCircle2 className={`w-4 h-4 ${task.done ? 'text-emerald-600' : 'text-stone-300'}`} />
                     </button>
                     <div className="flex-1 min-w-0">
-                      <span className={`text-xs font-medium block leading-snug ${task.done ? 'text-stone-500 line-through' : 'text-stone-800'}`}>
+                      <span className={`text-xs font-medium block leading-snug ${task.done ? 'text-stone-400 line-through' : 'text-stone-800'}`}>
                         {task.title}
                       </span>
-                      <span className="text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-medium mt-1 inline-block">
+                      <span className="text-[9px] bg-stone-100 text-stone-600 px-1.5 py-0.2 rounded-full font-medium mt-1 inline-block">
                         {task.tag}
                       </span>
                     </div>
-                    <button onClick={() => onDeleteTask && onDeleteTask(task.id)} className="text-stone-300 hover:text-rose-600 p-1 cursor-pointer">
-                      <Trash2 className="w-4 h-4" />
+                    <button onClick={() => onDeleteTask && onDeleteTask(task.id)} className="text-stone-300 hover:text-rose-600 p-1 tap-bounce cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
 
-              <form onSubmit={handleAssignTask} className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-xs space-y-3 pt-3">
+              <form onSubmit={handleAssignTask} className="glass-panel p-3.5 rounded-2xl border border-stone-200/80 shadow-ambient space-y-2.5">
                 <span className="font-semibold text-stone-800 block text-xs">
-                  + Asignar Ejercicio a {patient.name}:
+                  + Asignar Nuevo Ejercicio:
                 </span>
                 <input 
                   type="text" 
                   required
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="Ej: Registro de respiración..."
-                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50/50 text-stone-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#436146]"
+                  placeholder="Ej: Registro de respiración 4-7-8 antes de dormir..."
+                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-white text-stone-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#335236]/30"
                 />
                 <div className="flex items-center justify-between gap-2">
                   <select 
                     value={newTaskTag}
                     onChange={(e) => setNewTaskTag(e.target.value)}
-                    className="p-2 rounded-xl border border-stone-200 bg-white text-stone-700 text-xs"
+                    className="p-1.5 rounded-lg border border-stone-200 bg-white text-stone-700 text-xs cursor-pointer"
                   >
                     <option value="Calma">Calma</option>
                     <option value="Gratitud">Gratitud</option>
                     <option value="Reflexión">Reflexión</option>
+                    <option value="Límites">Límites</option>
                   </select>
-                  <button type="submit" className="px-4 py-2 bg-[#436146] hover:bg-[#253827] text-white rounded-xl font-medium text-xs cursor-pointer">
+                  <button type="submit" className="px-3.5 py-1.5 bg-[#2a422d] hover:bg-[#1d2f20] text-white rounded-xl font-medium text-xs tap-bounce cursor-pointer">
                     <Plus className="w-3.5 h-3.5 inline mr-1" /> Enviar
                   </button>
                 </div>
@@ -471,42 +515,161 @@ export default function PatientRecordModal({
             </div>
           )}
 
-          {/* PESTAÑA 4: BUZÓN */}
+          {/* =========================================================
+              4. BUZÓN DE SESIÓN Y APRENDIZAJES
+             ========================================================= */}
           {activeTab === 'vault' && (
-            <div className="space-y-4 animate-fadeIn">
-              <div className="space-y-2">
-                <span className="font-semibold text-stone-800 flex items-center gap-1.5 text-xs">
-                  <Inbox className="w-4 h-4 text-amber-700" /> Temas del paciente para la sesión:
+            <div className="space-y-3 animate-fadeIn">
+              <div className="space-y-1.5">
+                <span className="font-semibold text-stone-800 flex items-center gap-1.5 text-xs font-serif">
+                  <Inbox className="w-3.5 h-3.5 text-amber-700" /> Temas del Paciente para Consulta:
                 </span>
                 {sessionTopics.length === 0 ? (
-                  <p className="text-stone-400 text-xs italic">No hay temas en su buzón.</p>
+                  <p className="text-stone-400 text-xs italic font-light">No hay temas en su buzón.</p>
                 ) : (
                   sessionTopics.map(topic => (
-                    <div key={topic.id} className="p-3.5 rounded-2xl border bg-white border-stone-200/80 shadow-xs">
-                      <span className="text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-medium">
+                    <div key={topic.id} className="p-3 rounded-xl border bg-white border-stone-200/80 shadow-ambient">
+                      <span className="text-[9px] bg-stone-100 text-stone-600 px-2 py-0.2 rounded-full font-medium">
                         {topic.tag}
                       </span>
-                      <p className="text-stone-800 text-xs mt-1">{topic.text}</p>
+                      <p className="text-stone-800 text-xs mt-1 font-light leading-relaxed">{topic.text}</p>
                     </div>
                   ))
                 )}
               </div>
 
-              <form onSubmit={handlePinEpiphany} className="bg-gradient-to-br from-[#fcfbf9] to-[#f5efe6] p-4 rounded-3xl border border-[#e8ded0] space-y-2.5">
-                <span className="font-semibold text-[#8c6d48] flex items-center gap-1.5 text-xs">
-                  <Sparkles className="w-4 h-4" /> Fijar Aprendizaje para {patient.name}:
+              <form onSubmit={handlePinEpiphany} className="rounded-2xl p-3.5 bg-gradient-to-br from-[#fcfbf9] to-[#f5efe6] border border-[#e8ded0] space-y-2 shadow-ambient">
+                <span className="font-semibold text-[#7a5522] flex items-center gap-1.5 text-xs">
+                  <Sparkles className="w-3.5 h-3.5" /> Fijar Aprendizaje en su Cuaderno:
                 </span>
                 <textarea
                   rows="2"
                   value={newEpiphanyText}
                   onChange={(e) => setNewEpiphanyText(e.target.value)}
                   placeholder="Escribe la verdad que debe recordar..."
-                  className="w-full p-2.5 rounded-xl border border-[#e8ded0] bg-white text-stone-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#8c6d48] resize-none"
+                  className="w-full p-2.5 rounded-xl border border-[#e8ded0] bg-white text-stone-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#7a5522]/30 resize-none font-serif italic"
                 />
-                <button type="submit" className="w-full py-2.5 bg-[#8c6d48] hover:bg-[#735838] text-white rounded-xl font-medium text-xs cursor-pointer">
-                  Fijar en su Cuaderno de Sabiduría
+                <button type="submit" className="w-full py-2 bg-[#7a5522] hover:bg-[#604218] text-white rounded-xl font-medium text-xs tap-bounce cursor-pointer shadow-sm">
+                  Guardar en su Cuaderno
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* =========================================================
+              5. FICHA TÉCNICA NOM-004 Y CLAVE PIN
+             ========================================================= */}
+          {activeTab === 'dossier' && (
+            <div className="space-y-3 animate-fadeIn">
+              
+              <div className="bg-gradient-to-br from-emerald-50/90 to-teal-50/60 p-3.5 rounded-2xl border border-emerald-200/80 shadow-ambient space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#335236] flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-emerald-700" /> Clave de Ingreso del Paciente
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={handleCopyPinText}
+                      className="text-[10px] bg-white border border-emerald-200 text-[#2a422d] px-2 py-0.5 rounded-lg font-medium flex items-center gap-1 hover:bg-emerald-50 tap-bounce cursor-pointer"
+                    >
+                      {copiedWhatsApp ? <CheckCheck className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedWhatsApp ? 'Copiado' : 'Copiar'}</span>
+                    </button>
+                    <button
+                      onClick={handleSendPinWhatsApp}
+                      className="text-[10px] bg-[#2a422d] hover:bg-[#1d2f20] text-white px-2.5 py-0.5 rounded-lg font-medium flex items-center gap-1 tap-bounce cursor-pointer shadow-sm"
+                    >
+                      <MessageCircle className="w-3 h-3" /> WhatsApp
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-0.5">
+                  <div>
+                    <span className="text-[9px] text-stone-500 block">PIN de 6 Dígitos:</span>
+                    <span className="text-xl font-mono font-bold text-stone-900 tracking-[0.25em] block">
+                      {currentPin}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateUniquePin}
+                    className="text-[10px] bg-white border border-emerald-300/80 text-[#2a422d] px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 tap-bounce cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Regenerar
+                  </button>
+                </div>
+              </div>
+
+              <div className="glass-panel p-3.5 rounded-2xl border border-stone-200/80 shadow-ambient space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
+                  Motivo de Consulta Inicial:
+                </span>
+                <p className="text-xs text-stone-800 leading-relaxed font-light">
+                  {patient.motivo || 'Primera entrevista diagnóstica.'}
+                </p>
+              </div>
+
+              <div className="rounded-2xl p-3.5 bg-gradient-to-br from-[#faf8f5] to-[#f2ece4] border border-stone-200/80 shadow-ambient space-y-1">
+                <span className="font-semibold text-[#335236] flex items-center gap-1.5 text-[10px] uppercase tracking-wider">
+                  <Target className="w-3.5 h-3.5" /> Objetivos Terapéuticos:
+                </span>
+                <p className="text-stone-700 leading-relaxed text-xs font-serif italic">
+                  {patient.therapeuticGoals || 'Regulación emocional, autocuidado y fomento de la introspección.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="glass-panel p-2.5 rounded-2xl border border-stone-200/80">
+                  <span className="text-stone-400 block text-[9px] uppercase font-semibold">Terapia Previa:</span>
+                  <span className="text-stone-800 font-medium">{patient.previousTherapy || 'No'}</span>
+                </div>
+                <div className="glass-panel p-2.5 rounded-2xl border border-stone-200/80">
+                  <span className="text-stone-400 block text-[9px] uppercase font-semibold">Medicación:</span>
+                  <span className="text-stone-800 font-medium truncate block">{patient.medication || 'Ninguna'}</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-stone-200/70">
+                {!confirmDeletePatient ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeletePatient(true)}
+                    className="w-full py-2 text-center text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-colors tap-bounce cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Dar de baja expediente de este paciente
+                  </button>
+                ) : (
+                  <div className="bg-rose-50 p-3.5 rounded-2xl border border-rose-200 space-y-2 text-center animate-fadeIn">
+                    <p className="text-xs font-bold text-rose-900">
+                      ¿Segura que deseas eliminar a {patient.name}?
+                    </p>
+                    <p className="text-[10px] text-rose-700 leading-tight">
+                      Se borrarán de forma permanente sus citas, tareas y notas en la nube.
+                    </p>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeletePatient(false)}
+                        className="flex-1 py-1.5 bg-white border border-stone-200 rounded-xl text-stone-700 text-xs font-medium tap-bounce cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onDeletePatient) onDeletePatient(patient.id);
+                          onClose();
+                        }}
+                        className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold tap-bounce cursor-pointer shadow-sm"
+                      >
+                        Sí, eliminar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 
@@ -514,7 +677,6 @@ export default function PatientRecordModal({
 
       </div>
 
-      {/* MODAL EDITAR FICHA */}
       {showEditModal && (
         <EditPatientModal 
           patient={patient}
@@ -522,6 +684,19 @@ export default function PatientRecordModal({
           onUpdatePatient={(updated) => {
             if (onUpdatePatient) onUpdatePatient(updated);
           }}
+        />
+      )}
+
+      {showReportModal && (
+        <ClinicalReportModal 
+          patient={patient}
+          completedSessionsCount={completedSessionsCount}
+          clinicalNotes={clinicalNotes}
+          moodCheckIns={patient.moodCheckIns || []}
+          tasks={tasks}
+          epiphanies={epiphanies}
+          sessionTopics={sessionTopics}
+          onClose={() => setShowReportModal(false)}
         />
       )}
 

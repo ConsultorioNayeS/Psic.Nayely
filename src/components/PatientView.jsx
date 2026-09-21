@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import {
-  Calendar, Wind, Heart, ChevronRight, CheckCircle2,
-  Sun, Smile, Meh, AlertCircle, Frown, Headphones,
-  Sparkles, Inbox, BookOpen, Compass, Droplets, Trophy, Feather
+import { 
+  Calendar, Wind, Heart, ChevronRight, CheckCircle2, 
+  Sun, Smile, Meh, AlertCircle, Frown, Headphones, 
+  Sparkles, Inbox, BookOpen, Compass, Droplets, Trophy, Feather,
+  Home, Flower2, Bookmark, Play
 } from 'lucide-react';
 import BreathingModal from './BreathingModal';
 import GroundingSOSModal from './GroundingSOSModal';
@@ -14,24 +15,32 @@ import OracleDeckModal from './OracleDeckModal';
 import ThoughtDissolverModal from './ThoughtDissolverModal';
 import MicroVictoriesModal from './MicroVictoriesModal';
 import SelfRescueMirrorModal from './SelfRescueMirrorModal';
+import HapticHeartPacerModal from './HapticHeartPacerModal';
+import InnerGardenModal from './InnerGardenModal';
 
-export default function PatientView({
-  patientName = 'Paciente', // ⭐ NOMBRE DINÁMICO
-  audioLibrary = [],
-  tasks = [],
-  sessionTopics = [],
-  epiphanies = [],
-  victories = [],
-  rescueLetter = null,
+export default function PatientView({ 
+  currentPatient, 
+  audioLibrary = [], 
+  tasks = [], 
+  sessionTopics = [], 
+  epiphanies = [], 
+  victories = [], 
+  rescueLetter = null, 
+  moodCheckIns = [],
+  completedSessionsCount = 0, // <-- REPARADO: Recibe el número real de sesiones asistidas
+  onSaveMoodCheckIn,
   patientStatus = 'active',
-  onToggleTask,
-  onAddSessionTopic,
-  onDeleteSessionTopic,
-  onAddEpiphany,
-  onAddVictory,
-  onSaveRescueLetter,
-  upcomingAppointment
+  onToggleTask, 
+  onAddSessionTopic, 
+  onDeleteSessionTopic, 
+  onAddEpiphany, 
+  onAddVictory, 
+  onSaveRescueLetter, 
+  upcomingAppointment 
 }) {
+  const [patientTab, setPatientTab] = useState('today');
+
+  // Modales
   const [showBreathing, setShowBreathing] = useState(false);
   const [showAudios, setShowAudios] = useState(false);
   const [showSOS, setShowSOS] = useState(false);
@@ -42,35 +51,31 @@ export default function PatientView({
   const [showVictories, setShowVictories] = useState(false);
   const [showRescueMirror, setShowRescueMirror] = useState(false);
   const [rescueModalMode, setRescueModalMode] = useState('read');
+  const [showHapticPacer, setShowHapticPacer] = useState(false);
+  const [showGarden, setShowGarden] = useState(false);
   const [activeMoodModal, setActiveMoodModal] = useState(null);
-
   const [showRescueBanner, setShowRescueBanner] = useState(false);
 
-  const [recentCheckIn, setRecentCheckIn] = useState({
-    mood: 'En Paz',
-    tags: ['Sueño reparador', 'Tiempo a solas'],
-    note: 'Dormí 8 horas completas y salí a caminar.',
-    date: 'Hoy, 8:30 AM'
-  });
+  const patientDisplayName = currentPatient?.firstName || currentPatient?.name?.split(' ')[0] || 'Paciente';
+  const patientInitial = patientDisplayName.charAt(0).toUpperCase();
+
+  // El registro más reciente proviene EXCLUSIVAMENTE de los datos reales del paciente
+  const recentCheckIn = moodCheckIns.length > 0 ? moodCheckIns[0] : null;
 
   const moods = [
-    { label: 'Radiante', icon: Sun, color: 'text-amber-500 bg-amber-50 border-amber-200' },
-    { label: 'En Paz', icon: Smile, color: 'text-emerald-500 bg-emerald-50 border-emerald-200' },
-    { label: 'Neutral', icon: Meh, color: 'text-stone-500 bg-stone-50 border-stone-200' },
-    { label: 'Abrumado', icon: AlertCircle, color: 'text-rose-500 bg-rose-50 border-rose-200' },
-    { label: 'Triste', icon: Frown, color: 'text-sky-500 bg-sky-50 border-sky-200' },
+    { label: 'Radiante', icon: Sun, color: 'text-amber-600 bg-amber-50/80 border-amber-200' },
+    { label: 'En Paz', icon: Smile, color: 'text-emerald-700 bg-emerald-50/80 border-emerald-200' },
+    { label: 'Neutral', icon: Meh, color: 'text-stone-600 bg-stone-50/80 border-stone-200' },
+    { label: 'Abrumado', icon: AlertCircle, color: 'text-rose-600 bg-rose-50/80 border-rose-200' },
+    { label: 'Triste', icon: Frown, color: 'text-sky-600 bg-sky-50/80 border-sky-200' },
   ];
 
-  // ⭐ NOMBRE Y AVATAR DINÁMICOS
-  const firstName = patientName ? patientName.split(' ')[0] : 'Paciente';
-  const patientInitials = patientName
-    ? patientName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-    : 'PA';
-
-  const latestEpiphany = epiphanies[0]?.insight || "Aprender a decir 'no' a los demás cuando estoy cansada es decirme 'sí' a mí misma.";
+  const latestEpiphany = epiphanies[0]?.insight || "Descansar antes del agotamiento no es rendirse, es cuidarme.";
 
   const handleSaveMoodCheckIn = (entry) => {
-    setRecentCheckIn(entry);
+    if (onSaveMoodCheckIn) {
+      onSaveMoodCheckIn(entry);
+    }
     if ((entry.mood === 'Abrumado' || entry.mood === 'Triste') && rescueLetter) {
       setShowRescueBanner(true);
     }
@@ -78,60 +83,48 @@ export default function PatientView({
 
   if (patientStatus === 'suspended') {
     return (
-      <div className="p-8 min-h-screen flex flex-col justify-center items-center text-center space-y-6 animate-fadeIn">
-        <div className="w-16 h-16 rounded-full bg-stone-100 flex items-center justify-center text-stone-400">
+      <div className="p-8 min-h-screen flex flex-col justify-center items-center text-center space-y-5 animate-fadeIn select-none bg-[#faf8f5]">
+        <div className="w-16 h-16 rounded-3xl bg-stone-100 flex items-center justify-center text-stone-400 shadow-sm">
           <Compass className="w-8 h-8" />
         </div>
         <div className="space-y-2 max-w-xs">
-          <h2 className="text-lg font-medium text-stone-800">Ciclo Terapéutico Concluido</h2>
-          <p className="text-xs text-stone-500 leading-relaxed font-light">
-            Tu proceso en este espacio privado ha sido cerrado. Si deseas reanudar tus sesiones con la Psic. Nayely, puedes contactarla directamente:
+          <h2 className="text-xl font-serif text-stone-800">Ciclo Terapéutico Concluido</h2>
+          <p className="text-xs text-stone-500 font-light leading-relaxed">
+            Tu proceso en este espacio ha sido cerrado con gratitud. Puedes contactar a la Psicóloga Nayely cuando lo desees.
           </p>
         </div>
-        <a
-          href="https://wa.me/5215512345678?text=Hola%20Psic.%20Nayely,%20me%20gustar%C3%ADa%20retomar%20mis%20sesiones"
-          target="_blank"
-          rel="noreferrer"
-          className="px-6 py-3 bg-[#436146] text-white rounded-2xl text-xs font-medium shadow-md"
-        >
-          Contactar por WhatsApp
-        </a>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 pb-28">
-
-      {/* 1. Saludo Cálido (AHORA DINÁMICO) */}
-      <header className="flex justify-between items-start pt-2">
+    <div className="flex flex-col min-h-screen pb-28 select-none bg-[#faf8f5] overflow-x-hidden">
+      
+      {/* Cabecera Zen */}
+      <header className="px-6 pt-6 pb-4 flex justify-between items-start sticky top-0 z-30 bg-[#faf8f5]/80 backdrop-blur-md">
         <div>
-          <span className="text-xs font-semibold tracking-wider text-[#436146] uppercase">
-            {patientStatus === 'graduated' ? 'Cofre de Vida • Alta Terapéutica' : 'Espacio Seguro'}
+          <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#4e7e52] block">
+            {patientStatus === 'graduated' ? 'Cofre de Vida • Graduado' : 'Santuario de Calma'}
           </span>
-          <h1 className="text-2xl font-light tracking-tight text-stone-800">
-            Hola, <span className="font-medium text-[#253827]">{firstName}</span>
+          <h1 className="text-2xl font-serif text-stone-900 tracking-tight mt-0.5">
+            Hola, <span className="italic font-normal text-[#2a422d]">{patientDisplayName}</span>
           </h1>
-          <p className="text-xs text-stone-500 mt-0.5">
-            {patientStatus === 'graduated'
-              ? 'Has concluido tu proceso con éxito. Este espacio es tu santuario permanente.'
-              : 'Respira profundo, este momento es para ti.'}
-          </p>
         </div>
-        <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-500/20 flex items-center justify-center text-[#253827] font-medium text-xs">
-          {patientInitials}
+        <div className="w-10 h-10 rounded-2xl bg-white border border-stone-200/80 flex items-center justify-center text-[#2a422d] font-serif text-sm shadow-sm">
+          {patientInitial}
         </div>
       </header>
 
+      {/* Banner de Rescate en Días Grises */}
       {showRescueBanner && rescueLetter && (
-        <div className="bg-gradient-to-r from-amber-50 to-[#faf5ee] border-2 border-amber-300/80 rounded-3xl p-4 shadow-md flex items-center justify-between gap-3 animate-fadeIn">
+        <div className="mx-6 mt-2 glass-panel border border-amber-300/80 rounded-3xl p-4 shadow-ambient flex items-center justify-between gap-3 animate-fadeIn">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100 text-[#8c6d48] flex items-center justify-center flex-shrink-0">
-              <Feather className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-2xl bg-amber-100/80 text-[#996f30] flex items-center justify-center flex-shrink-0">
+              <Feather className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-stone-800">Noto que hoy es un día nublado...</h4>
-              <p className="text-[11px] text-stone-600">Tu yo en paz te dejó una carta de rescate para este momento.</p>
+              <h4 className="text-xs font-semibold text-stone-800">Un recordatorio para este día...</h4>
+              <p className="text-[11px] text-stone-500 font-light">Tu yo en paz te dejó una carta de rescate.</p>
             </div>
           </div>
           <button
@@ -140,291 +133,412 @@ export default function PatientView({
               setRescueModalMode('read');
               setShowRescueMirror(true);
             }}
-            className="px-3 py-1.5 bg-[#8c6d48] hover:bg-[#735838] text-white rounded-xl text-[11px] font-semibold whitespace-nowrap cursor-pointer shadow-2xs"
+            className="px-3 py-1.5 bg-[#996f30] text-white rounded-xl text-[11px] font-medium tap-bounce cursor-pointer shadow-xs"
           >
-            Leer carta
+            Abrir
           </button>
         </div>
       )}
 
-      {/* 2. Baraja Diaria */}
-      <div
-        onClick={() => setShowOracle(true)}
-        className="bg-gradient-to-r from-amber-50 to-[#faf5ee] border border-amber-200/80 rounded-3xl p-4 shadow-xs cursor-pointer hover:border-amber-400 transition-all flex items-center justify-between group"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-amber-100/80 text-[#8c6d48] flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-stone-800">Baraja de Autocompasión</span>
-              <span className="text-[9px] bg-amber-200/60 text-amber-900 font-bold px-1.5 py-0.2 rounded-md">Diaria</span>
-            </div>
-            <p className="text-[11px] text-stone-500">Toca para descubrir tu reflexión de hoy con la Psic. Nayely</p>
-          </div>
-        </div>
-        <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-1 transition-transform" />
-      </div>
+      {/* =========================================================================
+          PESTAÑA 1: «HOY»
+         ========================================================================= */}
+      {patientTab === 'today' && (
+        <main className="px-6 py-4 space-y-7 flex-1 animate-fadeIn">
+          
+          {/* ORBE DE PRESENCIA VIVA */}
+          <div className="relative flex flex-col items-center justify-center pt-2 pb-4 text-center">
+            <div className="absolute w-56 h-56 rounded-full bg-gradient-to-tr from-emerald-100/60 via-teal-50/50 to-transparent blur-2xl animate-breathe-aurora pointer-events-none" />
 
-      {/* 3. Próxima Cita */}
-      {patientStatus !== 'graduated' && (
-        <div className="bg-gradient-to-br from-[#436146] to-[#253827] text-white rounded-3xl p-5 shadow-lg shadow-emerald-950/10">
-          <div className="flex items-center gap-2 text-emerald-100 text-xs font-medium mb-2">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Próxima sesión con la Psic. Nayely</span>
+            <button
+              onClick={() => setShowBreathing(true)}
+              className="relative z-10 w-44 h-44 rounded-full bg-white/85 backdrop-blur-xl border border-white/90 shadow-luxe flex flex-col items-center justify-center group tap-bounce cursor-pointer transition-all duration-500 hover:scale-105"
+            >
+              <div className="w-12 h-12 rounded-full bg-emerald-50 text-[#335236] flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                <Wind className="w-6 h-6 animate-pulse" />
+              </div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-stone-800">
+                Pausa Consciente
+              </span>
+              <span className="text-[10px] text-stone-400 font-light mt-0.5 flex items-center gap-1">
+                <Play className="w-2.5 h-2.5 fill-current" /> Toca para respirar
+              </span>
+            </button>
+
+            <p className="text-xs font-serif italic text-stone-500 mt-4 max-w-xs leading-relaxed">
+              “Inhala serenidad, exhala lo que no puedes controlar hoy.”
+            </p>
           </div>
-          <h3 className="text-lg font-medium">
-            {upcomingAppointment ? upcomingAppointment.date : 'Sin cita programada'}
-          </h3>
-          <p className="text-xs text-emerald-100/90 mt-0.5">
-            {upcomingAppointment
-              ? `${upcomingAppointment.time} • ${upcomingAppointment.location}`
-              : 'Tu terapeuta te asignará tu próximo horario'}
-          </p>
-        </div>
+
+          {/* Próxima Sesión con Nayely */}
+          {patientStatus !== 'graduated' && upcomingAppointment && (
+            <div className="relative rounded-3xl p-5 bg-white/80 border border-stone-200/80 shadow-ambient space-y-2">
+              <div className="flex justify-between items-center text-[10px] uppercase font-bold tracking-widest text-[#4e7e52]">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" /> Próximo Encuentro
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-[#2a422d] border border-emerald-200/60">
+                  {upcomingAppointment.modality}
+                </span>
+              </div>
+
+              <div className="pt-1">
+                <h3 className="text-base font-serif text-stone-900">
+                  {upcomingAppointment.date}
+                </h3>
+                <p className="text-xs text-stone-500 font-light mt-0.5">
+                  Horario reservado: <strong className="text-stone-700 font-medium">{upcomingAppointment.time}</strong>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ¿Cómo late tu corazón hoy? (100% REAL) */}
+          <section className="space-y-3 pt-1">
+            <div className="flex justify-between items-center px-1">
+              <span className="text-xs font-serif italic text-stone-700">
+                ¿Cómo late tu corazón en este instante?
+              </span>
+              <span className="text-[10px] text-stone-400 uppercase tracking-wider font-mono">
+                {recentCheckIn ? 'Registrado' : 'Pendiente'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-5 gap-2">
+              {moods.map((m, idx) => {
+                const Icon = m.icon;
+                const isSelected = recentCheckIn?.mood === m.label;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveMoodModal(m)}
+                    className={`py-3 px-1 rounded-2xl border transition-all flex flex-col items-center justify-center tap-bounce cursor-pointer ${
+                      isSelected 
+                        ? `${m.color} shadow-sm scale-105 font-semibold` 
+                        : 'bg-white/70 border-stone-200/70 text-stone-400 hover:bg-white hover:text-stone-700'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5 mb-1.5" />
+                    <span className="text-[10px]">{m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Si no hay check-in aún, muestra instrucción honesta. Si existe, muestra los datos genuinos */}
+            {recentCheckIn ? (
+              <div className="mt-2 pt-2.5 border-t border-stone-100 text-xs bg-stone-50/60 p-3 rounded-2xl">
+                <div className="flex justify-between items-center text-[10px] text-stone-400 mb-1">
+                  <span>Último registro real:</span>
+                  <span className="font-semibold text-[#4e7e52]">
+                    {recentCheckIn.created_at ? new Date(recentCheckIn.created_at).toLocaleDateString('es-MX', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : 'Hoy'}
+                  </span>
+                </div>
+                {recentCheckIn.note && (
+                  <p className="text-[11px] text-stone-600 italic font-serif">“{recentCheckIn.note}”</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-stone-400 font-light text-center pt-1 italic">
+                Aún no has registrado tu pulso emocional. Toca una opción arriba cuando lo desees.
+              </p>
+            )}
+          </section>
+
+          {/* Tareas de la Semana */}
+          <section className="space-y-2.5 pt-2">
+            <div className="flex justify-between items-center px-1">
+              <span className="text-xs font-serif text-stone-700">
+                Ejercicios de autorregulación
+              </span>
+              <span className="text-[10px] font-medium text-[#4e7e52]">
+                {tasks.filter(t => t.done).length} de {tasks.length}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {tasks.length === 0 ? (
+                <div className="p-5 text-center text-xs text-stone-400 bg-white/60 rounded-2xl border border-dashed border-stone-200 font-light">
+                  Todo al día. No hay pendientes por ahora.
+                </div>
+              ) : (
+                tasks.map(task => (
+                  <div 
+                    key={task.id}
+                    onClick={() => onToggleTask && onToggleTask(task.id)}
+                    className={`p-3.5 rounded-2xl border transition-all flex items-start gap-3 cursor-pointer tap-bounce ${
+                      task.done 
+                        ? 'bg-stone-100/40 border-stone-200/60 text-stone-400 line-through' 
+                        : 'bg-white border-stone-200/80 text-stone-800 shadow-ambient'
+                    }`}
+                  >
+                    <CheckCircle2 className={`w-4 h-4 mt-0.5 flex-shrink-0 transition-colors ${
+                      task.done ? 'text-emerald-600' : 'text-stone-300'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-medium block leading-snug">{task.title}</span>
+                      <span className="inline-block mt-1 text-[9px] px-2 py-0.2 rounded-full bg-stone-100 text-stone-500 no-underline">
+                        {task.tag}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+        </main>
       )}
 
-      {/* 4. Santuario Terapéutico */}
-      <div className="space-y-2.5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-stone-400 block px-1">
-          Santuario Terapéutico
-        </span>
-
-        <div
-          onClick={() => {
-            setRescueModalMode(rescueLetter ? 'read' : 'write');
-            setShowRescueMirror(true);
-          }}
-          className="bg-gradient-to-br from-[#fcfbf9] to-[#f5efe6] border border-[#e8ded0] rounded-3xl p-4 shadow-xs cursor-pointer hover:border-[#8c6d48]/60 transition-all flex items-center justify-between group"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100/70 text-[#8c6d48] flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
-              <Feather className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h4 className="text-xs font-semibold text-stone-800">Espejo de Auto-Rescate</h4>
-                <span className="text-[9px] bg-amber-200/50 text-[#8c6d48] font-bold px-2 py-0.2 rounded-full">
-                  {rescueLetter ? 'Carta lista' : 'Escribir carta'}
-                </span>
-              </div>
-              <p className="text-[11px] text-stone-500 mt-0.5">
-                {rescueLetter
-                  ? 'Palabras de tu yo en paz para cuando llegue la tormenta'
-                  : 'Escríbele unas palabras a tu yo del futuro en tus días claros'}
-              </p>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-1 transition-transform" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          <div
-            onClick={() => setShowDissolver(true)}
-            className="bg-white rounded-2xl p-3.5 border border-stone-200/80 shadow-xs cursor-pointer hover:border-teal-400 transition-all flex flex-col justify-between"
+      {/* PESTAÑAS RESTANTES: SANTUARIO Y MI PROCESO */}
+      {patientTab === 'sanctuary' && (
+        <main className="px-6 py-4 space-y-4 flex-1 animate-fadeIn">
+          <div 
+            onClick={() => setShowOracle(true)}
+            className="rounded-3xl p-5 bg-gradient-to-r from-[#fcfbf9] to-[#f6f1e8] border border-amber-200/80 shadow-ambient flex items-center justify-between cursor-pointer tap-bounce group"
           >
-            <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center mb-2">
-              <Droplets className="w-5 h-5 text-teal-600" />
-            </div>
-            <div>
-              <h4 className="text-xs font-semibold text-stone-800">Soltar Pensamiento</h4>
-              <p className="text-[10px] text-stone-400 mt-0.5">Defusión en el Agua</p>
-            </div>
-          </div>
-
-          <div
-            onClick={() => setShowVictories(true)}
-            className="bg-white rounded-2xl p-3.5 border border-stone-200/80 shadow-xs cursor-pointer hover:border-amber-400 transition-all flex flex-col justify-between"
-          >
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-2">
-              <Trophy className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <h4 className="text-xs font-semibold text-stone-800">Mis Victorias</h4>
-              <p className="text-[10px] text-stone-400 mt-0.5">{victories.length} logros silenciosos</p>
-            </div>
-          </div>
-        </div>
-
-        {patientStatus !== 'graduated' && (
-          <div
-            onClick={() => setShowSessionVault(true)}
-            className="bg-white border border-stone-200/80 rounded-2xl p-3.5 shadow-xs cursor-pointer hover:border-amber-400 transition-all flex items-center justify-between group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
-                <Inbox className="w-4 h-4" />
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100/80 text-[#996f30] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-xs font-semibold text-stone-800">Buzón para mi Sesión</h4>
-                <p className="text-[10px] text-stone-400">Guarda temas de tu semana para consulta</p>
-              </div>
-            </div>
-            <span className="text-[10px] bg-amber-100 text-amber-900 font-semibold px-2 py-0.5 rounded-full">
-              {sessionTopics.length} listos
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* 5. Recursos de Bienestar */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <div
-          onClick={() => setShowBreathing(true)}
-          className="bg-white rounded-2xl p-3.5 border border-stone-200/80 shadow-xs cursor-pointer hover:border-teal-500/50 transition-all flex flex-col justify-between"
-        >
-          <div className="w-9 h-9 rounded-xl bg-teal-50 flex items-center justify-center text-teal-700 mb-2">
-            <Wind className="w-5 h-5 text-teal-600 animate-pulse" />
-          </div>
-          <div>
-            <h4 className="text-xs font-semibold text-stone-800">Agua Serena 4-7-8</h4>
-            <p className="text-[10px] text-stone-400 mt-0.5">Ondas y cuencos</p>
-          </div>
-        </div>
-
-        <div
-          onClick={() => setShowAudios(true)}
-          className="bg-white rounded-2xl p-3.5 border border-stone-200/80 shadow-xs cursor-pointer hover:border-purple-400/50 transition-all flex flex-col justify-between"
-        >
-          <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center text-purple-700 mb-2">
-            <Headphones className="w-5 h-5 text-purple-600" />
-          </div>
-          <div>
-            <h4 className="text-xs font-semibold text-stone-800">Rincón Sonoro</h4>
-            <p className="text-[10px] text-stone-400 mt-0.5">{audioLibrary.length} audios de Nayely</p>
-          </div>
-        </div>
-      </div>
-
-      {/* 6. Cuaderno de Sabiduría */}
-      <div
-        onClick={() => setShowEpiphanies(true)}
-        className="bg-gradient-to-br from-[#fcfbf9] to-[#f5efe6] rounded-3xl p-5 border border-[#e8ded0] shadow-xs cursor-pointer hover:border-[#8c6d48]/50 transition-all group"
-      >
-        <div className="flex justify-between items-center text-[10px] text-[#8c6d48] font-bold uppercase tracking-wider mb-2">
-          <span className="flex items-center gap-1.5">
-            <BookOpen className="w-3.5 h-3.5 text-[#8c6d48]" /> Cuaderno de Sabiduría
-          </span>
-          <span className="bg-white/80 border border-[#e8ded0] px-2 py-0.5 rounded-full text-stone-500 font-medium">
-            {epiphanies.length} notas
-          </span>
-        </div>
-        <p className="text-xs font-serif italic text-stone-800 leading-relaxed">
-          “{latestEpiphany}”
-        </p>
-      </div>
-
-      {/* 7. Check-in Emocional */}
-      <section className="bg-white rounded-3xl p-5 border border-stone-200/80 shadow-xs space-y-3">
-        <div className="flex justify-between items-center">
-          <h3 className="text-sm font-medium text-stone-800 flex items-center gap-1.5">
-            <Heart className="w-4 h-4 text-rose-500" />
-            ¿Cómo late tu corazón hoy?
-          </h3>
-          <span className="text-[10px] text-stone-400">Toca para registrar</span>
-        </div>
-
-        <div className="grid grid-cols-5 gap-2">
-          {moods.map((m, idx) => {
-            const Icon = m.icon;
-            const isSelected = recentCheckIn?.mood === m.label;
-            return (
-              <button
-                key={idx}
-                onClick={() => setActiveMoodModal(m)}
-                className={`flex flex-col items-center py-2.5 px-1 rounded-2xl border transition-all ${
-                  isSelected
-                    ? `${m.color} border-current shadow-xs scale-105 font-medium`
-                    : 'border-stone-100 bg-stone-50/50 text-stone-400 hover:bg-stone-50'
-                }`}
-              >
-                <Icon className="w-5 h-5 mb-1" />
-                <span className="text-[10px] leading-tight">{m.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 8. Tareas Asignadas */}
-      <section className="space-y-3">
-        <div className="flex justify-between items-center px-1">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-stone-400">
-            Propuestas de la Psic. Nayely
-          </h3>
-          <span className="text-xs text-[#436146] font-medium">
-            {tasks.filter(t => t.done).length} de {tasks.length} listas
-          </span>
-        </div>
-
-        <div className="space-y-2.5">
-          {tasks.map(task => (
-            <div
-              key={task.id}
-              onClick={() => onToggleTask && onToggleTask(task.id)}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 ${
-                task.done
-                  ? 'bg-stone-100/60 border-stone-200 text-stone-400 line-through'
-                  : 'bg-white border-stone-200/80 text-stone-800 shadow-xs hover:border-emerald-500/30'
-              }`}
-            >
-              <CheckCircle2 className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
-                task.done ? 'text-emerald-600' : 'text-stone-300'
-              }`} />
-              <div className="flex-1">
-                <span className="text-xs font-medium block leading-snug">{task.title}</span>
-                <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 font-normal no-underline">
-                  {task.tag}
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#996f30] block">
+                  Reflexión de Hoy
                 </span>
+                <h4 className="text-xs font-semibold text-stone-800">Baraja de Autocompasión</h4>
+                <p className="text-[11px] text-stone-500 font-light mt-0.5">Toca para descubrir tu mensaje</p>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
+            <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-1 transition-transform" />
+          </div>
 
-      {/* Pausa de Anclaje Flotante */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+          <div className="grid grid-cols-2 gap-3">
+            <div 
+              onClick={() => setShowBreathing(true)}
+              className="bg-white rounded-3xl p-4 border border-stone-200/80 shadow-ambient flex flex-col justify-between cursor-pointer tap-bounce hover:border-emerald-300 transition-all"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#335236] flex items-center justify-center mb-3">
+                <Wind className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-stone-800">Respiración 4-7-8</h4>
+                <p className="text-[10px] text-stone-400 mt-0.5">Cuencos tibetanos</p>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setShowHapticPacer(true)}
+              className="bg-white rounded-3xl p-4 border border-stone-200/80 shadow-ambient flex flex-col justify-between cursor-pointer tap-bounce hover:border-rose-300 transition-all"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-3">
+                <Heart className="w-5 h-5 fill-rose-100" />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-stone-800">Marcapasos Calma</h4>
+                <p className="text-[10px] text-stone-400 mt-0.5">Sincroniza tu pulso a 60</p>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setShowDissolver(true)}
+              className="bg-white rounded-3xl p-4 border border-stone-200/80 shadow-ambient flex flex-col justify-between cursor-pointer tap-bounce hover:border-teal-300 transition-all"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mb-3">
+                <Droplets className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-stone-800">Soltar Pensamiento</h4>
+                <p className="text-[10px] text-stone-400 mt-0.5">Defusión en agua</p>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => setShowGarden(true)}
+              className="bg-white rounded-3xl p-4 border border-stone-200/80 shadow-ambient flex flex-col justify-between cursor-pointer tap-bounce hover:border-emerald-300 transition-all"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#335236] flex items-center justify-center mb-3">
+                <Sparkles className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-stone-800">Jardín Interior</h4>
+                <p className="text-[10px] text-stone-400 mt-0.5">Florece con tu avance</p>
+              </div>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => setShowAudios(true)}
+            className="bg-white rounded-3xl p-4 border border-stone-200/80 shadow-ambient flex items-center justify-between cursor-pointer tap-bounce group"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center flex-shrink-0">
+                <Headphones className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-stone-800">Rincón Sonoro de Nayely</h4>
+                <p className="text-[10px] text-stone-400 mt-0.5">{audioLibrary.length} meditaciones y guías de voz</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-stone-400 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </main>
+      )}
+
+      {patientTab === 'journal' && (
+        <main className="px-6 py-4 space-y-4 flex-1 animate-fadeIn">
+          <div 
+            onClick={() => setShowEpiphanies(true)}
+            className="rounded-3xl p-5 bg-gradient-to-br from-[#fbf9f5] to-[#f4ede3] border border-[#e5dcce] shadow-ambient cursor-pointer tap-bounce"
+          >
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-[#7a5522] mb-2">
+              <span className="flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5" /> Cuaderno de Sabiduría
+              </span>
+              <span className="bg-white/80 border border-stone-200 px-2 py-0.5 rounded-full text-stone-600">
+                {epiphanies.length} aprendizajes
+              </span>
+            </div>
+            <p className="text-xs font-serif italic text-stone-800 leading-relaxed">
+              “{latestEpiphany}”
+            </p>
+          </div>
+
+          <div 
+            onClick={() => {
+              setRescueModalMode(rescueLetter ? 'read' : 'write');
+              setShowRescueMirror(true);
+            }}
+            className="bg-white rounded-3xl p-4 border border-stone-200/80 shadow-ambient flex items-center justify-between cursor-pointer tap-bounce"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100/70 text-[#7a5522] flex items-center justify-center flex-shrink-0">
+                <Feather className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-xs font-semibold text-stone-800">Espejo de Auto-Rescate</h4>
+                  <span className="text-[9px] bg-amber-100 text-[#7a5522] font-semibold px-2 py-0.2 rounded-full">
+                    {rescueLetter ? 'Carta guardada' : 'Escribir'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-stone-500 font-light mt-0.5">Mensaje de tu yo en calma para días nublados</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-stone-400" />
+          </div>
+
+          <div 
+            onClick={() => setShowVictories(true)}
+            className="bg-white rounded-3xl p-4 border border-stone-200/80 shadow-ambient flex items-center justify-between cursor-pointer tap-bounce"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0">
+                <Trophy className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-stone-800">Mis Victorias Silenciosas</h4>
+                <p className="text-[10px] text-stone-400 mt-0.5">{victories.length} logros invisibles para el mundo</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-stone-400" />
+          </div>
+
+          {patientStatus !== 'graduated' && (
+            <div 
+              onClick={() => setShowSessionVault(true)}
+              className="bg-white rounded-3xl p-4 border border-stone-200/80 shadow-ambient flex items-center justify-between cursor-pointer tap-bounce"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-stone-100 text-stone-700 flex items-center justify-center flex-shrink-0">
+                  <Inbox className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-stone-800">Buzón para mi Sesión</h4>
+                  <p className="text-[10px] text-stone-400 mt-0.5">Temas que deseas tratar con Nayely</p>
+                </div>
+              </div>
+              <span className="text-[10px] bg-stone-100 text-stone-700 font-medium px-2.5 py-0.5 rounded-full">
+                {sessionTopics.length} notas
+              </span>
+            </div>
+          )}
+        </main>
+      )}
+
+      {/* Cápsula Flotante de Anclaje SOS */}
+      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30">
         <button
           onClick={() => setShowSOS(true)}
-          className="bg-[#253827]/90 hover:bg-[#1a291c] active:scale-95 text-stone-200 px-4 py-2.5 rounded-full shadow-xl shadow-stone-900/25 flex items-center gap-2.5 text-xs font-medium tracking-wide transition-all border border-white/15 backdrop-blur-md cursor-pointer"
+          className="glass-panel text-stone-800 hover:text-stone-900 px-4 py-2 rounded-full shadow-luxe flex items-center gap-2.5 text-xs font-medium tracking-wide tap-bounce cursor-pointer border border-white/80"
         >
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
           </span>
-          <Compass className="w-3.5 h-3.5 text-emerald-300" />
+          <Compass className="w-3.5 h-3.5 text-[#335236]" />
           <span>Pausa de Anclaje • 5-4-3-2-1</span>
         </button>
       </div>
 
-      {/* MODALES */}
+      {/* Barra de Navegación Inferior */}
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-panel border-t border-white/70 px-8 py-3 flex justify-between items-center z-40 shadow-ambient">
+        <button
+          onClick={() => setPatientTab('today')}
+          className={`flex flex-col items-center gap-1 transition-all cursor-pointer tap-bounce ${
+            patientTab === 'today' ? 'text-[#2a422d] font-semibold scale-105' : 'text-stone-400 hover:text-stone-600 font-normal'
+          }`}
+        >
+          <Home className="w-5 h-5" />
+          <span className="text-[10px]">Hoy</span>
+        </button>
+
+        <button
+          onClick={() => setPatientTab('sanctuary')}
+          className={`flex flex-col items-center gap-1 transition-all cursor-pointer tap-bounce ${
+            patientTab === 'sanctuary' ? 'text-[#2a422d] font-semibold scale-105' : 'text-stone-400 hover:text-stone-600 font-normal'
+          }`}
+        >
+          <Flower2 className="w-5 h-5" />
+          <span className="text-[10px]">Santuario</span>
+        </button>
+
+        <button
+          onClick={() => setPatientTab('journal')}
+          className={`flex flex-col items-center gap-1 transition-all cursor-pointer tap-bounce ${
+            patientTab === 'journal' ? 'text-[#2a422d] font-semibold scale-105' : 'text-stone-400 hover:text-stone-600 font-normal'
+          }`}
+        >
+          <Bookmark className="w-5 h-5" />
+          <span className="text-[10px]">Mi Proceso</span>
+        </button>
+      </nav>
+
+      {/* Modales */}
       {showBreathing && <BreathingModal onClose={() => setShowBreathing(false)} />}
       {showAudios && <AudioLibraryModal audioLibrary={audioLibrary} onClose={() => setShowAudios(false)} />}
       {showSOS && <GroundingSOSModal onClose={() => setShowSOS(false)} />}
       {showSessionVault && (
-        <SessionVaultModal
-          topics={sessionTopics}
+        <SessionVaultModal 
+          topics={sessionTopics} 
           onAddTopic={onAddSessionTopic}
           onDeleteTopic={onDeleteSessionTopic}
-          onClose={() => setShowSessionVault(false)}
+          onClose={() => setShowSessionVault(false)} 
         />
       )}
       {showEpiphanies && (
-  <EpiphanyVaultModal
-    epiphanies={epiphanies}
-    onAddEpiphany={onAddEpiphany}
-    onClose={() => setShowEpiphanies(false)}
-    patientName={patientName}
-  />
-)}
+        <EpiphanyVaultModal 
+          epiphanies={epiphanies}
+          onAddEpiphany={onAddEpiphany}
+          onClose={() => setShowEpiphanies(false)} 
+        />
+      )}
       {showOracle && <OracleDeckModal onClose={() => setShowOracle(false)} />}
       {showDissolver && <ThoughtDissolverModal onClose={() => setShowDissolver(false)} />}
       {showVictories && (
-        <MicroVictoriesModal
+        <MicroVictoriesModal 
           victories={victories}
           onAddVictory={onAddVictory}
-          onClose={() => setShowVictories(false)}
+          onClose={() => setShowVictories(false)} 
         />
       )}
       {showRescueMirror && (
@@ -432,14 +546,23 @@ export default function PatientView({
           rescueLetter={rescueLetter}
           initialMode={rescueModalMode}
           onSaveLetter={onSaveRescueLetter}
-          onClose={() => setShowRescueMirror(false)}
+          onClose={() => setShowRescueMirror(false)} 
         />
       )}
+      {showHapticPacer && <HapticHeartPacerModal onClose={() => setShowHapticPacer(false)} />}
+      {showGarden && (
+    <InnerGardenModal 
+      tasksCount={tasks.filter(t => t.done).length} 
+      victoriesCount={victories.length} 
+      sessionsCount={completedSessionsCount} // <-- REPARADO: Conteo dinámico real
+      onClose={() => setShowGarden(false)} 
+    />
+  )}
       {activeMoodModal && (
-        <MoodCheckInModal
-          mood={activeMoodModal}
+        <MoodCheckInModal 
+          mood={activeMoodModal} 
           onClose={() => setActiveMoodModal(null)}
-          onSave={handleSaveMoodCheckIn}
+          onSave={handleSaveMoodCheckIn} 
         />
       )}
 

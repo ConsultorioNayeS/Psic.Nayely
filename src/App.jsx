@@ -5,41 +5,13 @@ import AuthView from './components/AuthView';
 import { supabase } from './lib/supabase';
 import { LogOut } from 'lucide-react';
 
-// ============ NORMALIZADORES (Supabase snake_case → camelCase frontend) ============
-const normalizeAppointment = (apt) => {
-  if (!apt) return apt;
-  return {
-    ...apt,
-    rawDate: apt.raw_date || apt.rawDate || '',
-    patientId: apt.patient_id || apt.patientId || null,
-    patientName: apt.patient_name || apt.patientName || '',
-    patientPhone: apt.patient_phone || apt.patientPhone || '',
-  };
-};
-
-const normalizePatient = (p) => {
-  if (!p) return p;
-  return {
-    ...p,
-    firstName: p.first_name || p.firstName || '',
-    paternalLastName: p.paternal_last_name || p.paternalLastName || '',
-    maternalLastName: p.maternal_last_name || p.maternalLastName || '',
-    emergencyContact: p.emergency_contact || p.emergencyContact || {},
-    previousTherapy: p.previous_therapy || p.previousTherapy || 'No',
-    therapeuticGoals: p.therapeutic_goals || p.therapeuticGoals || '',
-  };
-};
-
 export default function App() {
-  const THERAPIST_USER = 'nayely';
-  const THERAPIST_PIN = '998877';
-
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('nayely_auth_session');
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [patients, setPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -49,81 +21,159 @@ export default function App() {
   const [victories, setVictories] = useState([]);
   const [rescueLetter, setRescueLetter] = useState(null);
   const [audioLibrary, setAudioLibrary] = useState([]);
+  const [moodCheckIns, setMoodCheckIns] = useState([]);
+  const [clinicalNotes, setClinicalNotes] = useState([]);
 
-  const fetchCloudData = async () => {
+  const formatPatientFromDB = (p) => {
+    const emergency = p.emergency_contact || p.emergencyContact || {
+      name: 'No asignado',
+      phone: '',
+      relation: 'Familiar'
+    };
+
+    return {
+      ...p,
+      firstName: p.first_name || p.firstName || p.name?.split(' ')[0] || '',
+      paternalLastName: p.paternal_last_name || p.paternalLastName || '',
+      maternalLastName: p.maternal_last_name || p.maternalLastName || '',
+      gender: p.gender || 'Masculino',
+      emergencyContact: emergency,
+      emergency_contact: emergency,
+      previousTherapy: p.previous_therapy || p.previousTherapy || 'No',
+      therapeuticGoals: p.therapeutic_goals || p.therapeuticGoals || '',
+      clinicalNotes: p.clinicalNotes || []
+    };
+  };
+
+  const formatAppointmentFromDB = (a) => ({
+    ...a,
+    patientId: a.patient_id || a.patientId,
+    patient_id: a.patient_id || a.patientId,
+    patientName: a.patient_name || a.patientName || 'Paciente',
+    patient_name: a.patient_name || a.patientName || 'Paciente',
+    patientPhone: a.patient_phone || a.patientPhone || '',
+    patient_phone: a.patient_phone || a.patientPhone || '',
+    rawDate: a.raw_date || a.rawDate,
+    raw_date: a.raw_date || a.rawDate,
+  });
+
+  // CARGA DE DATOS CONDICIONAL: Solo se ejecuta si hay un usuario autenticado
+  const fetchCloudData = async (user) => {
+    if (!user) return;
+    setIsLoading(true);
+
     try {
-      const { data: pts } = await supabase.from('patients').select('*').order('created_at', { ascending: false });
-      if (pts) setPatients(pts.map(normalizePatient));
+      if (user.role === 'therapist') {
+        // La terapeuta descarga el consultorio completo
+        const [pts, apts, tsks, eps, tops, vics, auds, moods, cNotes] = await Promise.all([
+          supabase.from('patients').select('*').order('created_at', { ascending: false }),
+          supabase.from('appointments').select('*').order('created_at', { ascending: false }),
+          supabase.from('patient_tasks').select('*').order('created_at', { ascending: false }),
+          supabase.from('epiphanies').select('*').order('created_at', { ascending: false }),
+          supabase.from('session_topics').select('*').order('created_at', { ascending: false }),
+          supabase.from('micro_victories').select('*').order('created_at', { ascending: false }),
+          supabase.from('audio_library').select('*').order('created_at', { ascending: false }),
+          supabase.from('mood_checkins').select('*').order('created_at', { ascending: false }),
+          supabase.from('clinical_notes').select('*').order('created_at', { ascending: false }),
+        ]);
 
-      const { data: apts } = await supabase.from('appointments').select('*').order('created_at', { ascending: false });
-      if (apts) setAppointments(apts.map(normalizeAppointment));
+        if (pts.data) setPatients(pts.data.map(formatPatientFromDB));
+        if (apts.data) setAppointments(apts.data.map(formatAppointmentFromDB));
+        if (tsks.data) setPatientTasks(tsks.data);
+        if (eps.data) setEpiphanies(eps.data);
+        if (tops.data) setSessionTopics(tops.data);
+        if (vics.data) setVictories(vics.data);
+        if (auds.data) setAudioLibrary(auds.data);
+        if (moods.data) setMoodCheckIns(moods.data);
+        if (cNotes.data) setClinicalNotes(cNotes.data);
 
-      const { data: tsks } = await supabase.from('patient_tasks').select('*').order('created_at', { ascending: false });
-      if (tsks) setPatientTasks(tsks);
+      } else if (user.role === 'patient') {
+        // Un paciente descarga ÚNICAMENTE sus propios registros (Máxima privacidad)
+        const pId = user.patientId;
+        const [patientData, apts, tsks, eps, tops, vics, auds, moods, letter] = await Promise.all([
+          supabase.from('patients').select('*').eq('id', pId).single(),
+          supabase.from('appointments').select('*').eq('patient_id', pId).order('created_at', { ascending: false }),
+          supabase.from('patient_tasks').select('*').eq('patient_id', pId).order('created_at', { ascending: false }),
+          supabase.from('epiphanies').select('*').eq('patient_id', pId).order('created_at', { ascending: false }),
+          supabase.from('session_topics').select('*').eq('patient_id', pId).order('created_at', { ascending: false }),
+          supabase.from('micro_victories').select('*').eq('patient_id', pId).order('created_at', { ascending: false }),
+          supabase.from('audio_library').select('*').order('created_at', { ascending: false }),
+          supabase.from('mood_checkins').select('*').eq('patient_id', pId).order('created_at', { ascending: false }),
+          supabase.from('rescue_letters').select('*').eq('patient_id', pId).order('created_at', { ascending: false }).limit(1)
+        ]);
 
-      const { data: eps } = await supabase.from('epiphanies').select('*').order('created_at', { ascending: false });
-      if (eps) setEpiphanies(eps);
-
-      const { data: tops } = await supabase.from('session_topics').select('*').order('created_at', { ascending: false });
-      if (tops) setSessionTopics(tops);
-
-      const { data: vics } = await supabase.from('micro_victories').select('*').order('created_at', { ascending: false });
-      if (vics) setVictories(vics);
-
-      const { data: auds } = await supabase.from('audio_library').select('*').order('created_at', { ascending: false });
-      if (auds) setAudioLibrary(auds);
+        if (patientData.data) setPatients([formatPatientFromDB(patientData.data)]);
+        if (apts.data) setAppointments(apts.data.map(formatAppointmentFromDB));
+        if (tsks.data) setPatientTasks(tsks.data);
+        if (eps.data) setEpiphanies(eps.data);
+        if (tops.data) setSessionTopics(tops.data);
+        if (vics.data) setVictories(vics.data);
+        if (auds.data) setAudioLibrary(auds.data);
+        if (moods.data) setMoodCheckIns(moods.data);
+        if (letter.data && letter.data.length > 0) setRescueLetter(letter.data[0]);
+      }
     } catch (err) {
-      console.error('Error al sincronizar con Supabase:', err);
+      console.error('Error cargando datos protegidos:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCloudData();
-  }, []);
-
-  useEffect(() => {
-    if (currentUser && currentUser.role === 'patient') {
-      supabase
-        .from('rescue_letters')
-        .select('*')
-        .eq('patient_id', currentUser.patientId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .then(({ data }) => {
-          if (data && data.length > 0) {
-            setRescueLetter(data[0]);
-          } else {
-            setRescueLetter(null);
-          }
-        });
+    if (currentUser) {
+      fetchCloudData(currentUser);
     }
   }, [currentUser]);
 
-  const handleLoginWithPin = (identifier, enteredPin) => {
+  // LOGIN ASÍNCRONO SEGURO (VALIDADO CONTRA LA BASE DE DATOS)
+  const handleLoginWithPin = async (identifier, enteredPin) => {
     const cleanId = identifier.replace(/\D/g, '') || identifier.toLowerCase().trim();
 
-    if (
-      (cleanId === THERAPIST_USER || identifier.toLowerCase().includes('nayely')) &&
-      enteredPin === THERAPIST_PIN
-    ) {
-      const authData = { role: 'therapist', name: 'Psic. Nayely', id: 'nayely' };
-      setCurrentUser(authData);
-      localStorage.setItem('nayely_auth_session', JSON.stringify(authData));
-      return true;
+    // 1. Validar si intenta entrar la terapeuta (Nayely)
+    if (cleanId === 'nayely' || identifier.toLowerCase().includes('nayely')) {
+      try {
+        const { data, error } = await supabase
+          .from('therapist_credentials')
+          .select('pin')
+          .eq('id', 'nayely')
+          .single();
+
+        // Si existe en Supabase y el PIN coincide:
+        if (data && data.pin === enteredPin) {
+          const authData = { role: 'therapist', name: 'Psicóloga Nayely', id: 'nayely' };
+          setCurrentUser(authData);
+          localStorage.setItem('nayely_auth_session', JSON.stringify(authData));
+          return true;
+        }
+      } catch (e) {
+        console.error('Error validando credenciales de terapeuta:', e);
+      }
+      return false;
     }
 
-    const patientFound = patients.find(p => {
-      const patientCleanPhone = p.phone?.replace(/\D/g, '') || '';
-      return (patientCleanPhone === cleanId || p.email?.toLowerCase() === identifier.toLowerCase().trim()) && p.pin === enteredPin;
-    });
+    // 2. Validar si intenta entrar un paciente (Consulta directa y segura en Supabase)
+    try {
+      let query = supabase.from('patients').select('id, name, pin, phone, email');
 
-    if (patientFound) {
-      const authData = { role: 'patient', patientId: patientFound.id, name: patientFound.name };
-      setCurrentUser(authData);
-      localStorage.setItem('nayely_auth_session', JSON.stringify(authData));
-      return true;
+      if (/^\d+$/.test(cleanId) && cleanId.length >= 7) {
+        query = query.ilike('phone', `%${cleanId}%`);
+      } else {
+        query = query.ilike('email', cleanId);
+      }
+
+      const { data: candidates, error } = await query;
+
+      if (candidates && candidates.length > 0) {
+        const patientMatch = candidates.find(p => p.pin === enteredPin);
+        if (patientMatch) {
+          const authData = { role: 'patient', patientId: patientMatch.id, name: patientMatch.name };
+          setCurrentUser(authData);
+          localStorage.setItem('nayely_auth_session', JSON.stringify(authData));
+          return true;
+        }
+      }
+    } catch (e) {
+      console.error('Error validando paciente:', e);
     }
 
     return false;
@@ -132,172 +182,153 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('nayely_auth_session');
     setCurrentUser(null);
+    setPatients([]);
+    setAppointments([]);
+    setPatientTasks([]);
+    setClinicalNotes([]);
+    setMoodCheckIns([]);
   };
 
-  // ================= OPERACIONES EN SUPABASE =================
+  const handleSaveMoodCheckIn = async (entry) => {
+    if (!currentUser?.patientId) return;
+
+    const payload = {
+      patient_id: currentUser.patientId,
+      mood: entry.mood,
+      tags: entry.tags || [],
+      note: entry.note || '',
+    };
+
+    const { data } = await supabase.from('mood_checkins').insert([payload]).select();
+    if (data && data[0]) {
+      setMoodCheckIns(prev => [data[0], ...prev]);
+    }
+  };
 
   const handleSavePatient = async (newPatient) => {
-    try {
-      const pin = newPatient.pin || Math.floor(100000 + Math.random() * 900000).toString();
-      const patientPayload = {
-        first_name: newPatient.firstName,
-        paternal_last_name: newPatient.paternalLastName,
-        maternal_last_name: newPatient.maternalLastName,
-        name: newPatient.name,
-        phone: newPatient.phone,
-        email: newPatient.email,
-        pin: pin,
-        age: newPatient.age,
-        gender: newPatient.gender || 'Femenino',
-        occupation: newPatient.occupation,
-        status: 'active',
-        emergency_contact: newPatient.emergencyContact,
-        motivo: newPatient.motivo,
-        medication: newPatient.medication,
-        previous_therapy: newPatient.previousTherapy,
-        therapeutic_goals: newPatient.therapeuticGoals,
-      };
+    const pin = newPatient.pin || Math.floor(100000 + Math.random() * 900000).toString();
+    const emergency = newPatient.emergencyContact || newPatient.emergency_contact || {};
 
-      const { data, error } = await supabase.from('patients').insert([patientPayload]).select();
-      if (error) {
-        console.error('Error guardando paciente:', error);
-        alert(`No se pudo guardar el paciente: ${error.message}`);
-        return false;
-      }
-      if (data && data[0]) {
-        setPatients([normalizePatient(data[0]), ...patients]);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error(err);
-      alert(`Error inesperado: ${err.message}`);
-      return false;
+    const patientPayload = {
+      first_name: newPatient.firstName,
+      paternal_last_name: newPatient.paternalLastName,
+      maternal_last_name: newPatient.maternalLastName,
+      name: newPatient.name,
+      phone: newPatient.phone,
+      email: newPatient.email,
+      pin: pin,
+      age: newPatient.age,
+      gender: newPatient.gender || 'Masculino',
+      occupation: newPatient.occupation,
+      status: 'active',
+      emergency_contact: emergency,
+      motivo: newPatient.motivo,
+      medication: newPatient.medication,
+      previous_therapy: newPatient.previousTherapy,
+      therapeutic_goals: newPatient.therapeuticGoals,
+    };
+
+    const { data } = await supabase.from('patients').insert([patientPayload]).select();
+    if (data && data[0]) {
+      setPatients([formatPatientFromDB(data[0]), ...patients]);
     }
   };
 
   const handleUpdatePatient = async (updatedPatient) => {
-    try {
-      const { error } = await supabase
-        .from('patients')
-        .update({
-          first_name: updatedPatient.firstName,
-          paternal_last_name: updatedPatient.paternalLastName,
-          maternal_last_name: updatedPatient.maternalLastName,
-          name: updatedPatient.name,
-          phone: updatedPatient.phone,
-          email: updatedPatient.email,
-          pin: updatedPatient.pin,
-          age: updatedPatient.age,
-          occupation: updatedPatient.occupation,
-          status: updatedPatient.status,
-          emergency_contact: updatedPatient.emergencyContact,
-          motivo: updatedPatient.motivo,
-          medication: updatedPatient.medication,
-          therapeutic_goals: updatedPatient.therapeuticGoals,
-        })
-        .eq('id', updatedPatient.id);
+    const formatted = formatPatientFromDB(updatedPatient);
+    setPatients(prev => prev.map(p => p.id === formatted.id ? formatted : p));
 
-      if (error) {
-        console.error('Error actualizando paciente:', error);
-        return false;
-      }
-      setPatients(patients.map(p => p.id === updatedPatient.id ? normalizePatient(updatedPatient) : p));
-      return true;
-    } catch (err) {
-      console.error(err);
-      return false;
-    }
+    const emergency = updatedPatient.emergencyContact || updatedPatient.emergency_contact || {};
+
+    await supabase
+      .from('patients')
+      .update({
+        first_name: updatedPatient.firstName,
+        paternal_last_name: updatedPatient.paternalLastName,
+        maternal_last_name: updatedPatient.maternalLastName,
+        name: updatedPatient.name,
+        phone: updatedPatient.phone,
+        email: updatedPatient.email,
+        pin: updatedPatient.pin,
+        age: updatedPatient.age,
+        gender: updatedPatient.gender,
+        occupation: updatedPatient.occupation,
+        status: updatedPatient.status,
+        emergency_contact: emergency,
+        motivo: updatedPatient.motivo,
+        medication: updatedPatient.medication,
+        therapeutic_goals: updatedPatient.therapeuticGoals,
+      })
+      .eq('id', updatedPatient.id);
+  };
+
+  const handleDeletePatient = async (id) => {
+    await supabase.from('patients').delete().eq('id', id);
+    setPatients(prev => prev.filter(p => p.id !== id));
+    setAppointments(prev => prev.filter(a => (a.patient_id !== id && a.patientId !== id)));
+    setPatientTasks(prev => prev.filter(t => (t.patient_id !== id && t.patientId !== id)));
+    setMoodCheckIns(prev => prev.filter(m => m.patient_id !== id));
+    setClinicalNotes(prev => prev.filter(n => n.patient_id !== id));
   };
 
   const handleScheduleAppointment = async (newAppointment) => {
-    try {
-      const payload = {
-        patient_id: newAppointment.patientId,
-        patient_name: newAppointment.patientName,
-        patient_phone: newAppointment.patientPhone || '',
-        date: newAppointment.date,
-        raw_date: newAppointment.rawDate,
-        time: newAppointment.time,
-        modality: newAppointment.modality,
-        location: newAppointment.location,
-        status: 'Confirmada',
-      };
+    const payload = {
+      patient_id: newAppointment.patientId,
+      patient_name: newAppointment.patientName,
+      patient_phone: newAppointment.patientPhone,
+      date: newAppointment.date,
+      raw_date: newAppointment.rawDate,
+      time: newAppointment.time,
+      modality: newAppointment.modality,
+      location: newAppointment.location,
+      status: 'Confirmada',
+    };
 
-      console.log('📅 Insertando cita en Supabase:', payload);
-
-      const { data, error } = await supabase.from('appointments').insert([payload]).select();
-
-      if (error) {
-        console.error('❌ Error al agendar cita en Supabase:', error);
-        alert(
-          `No se pudo agendar la cita.\n\nDetalle: ${error.message}\n\n` +
-          `Verifica en Supabase que la tabla "appointments" tenga las columnas:\n` +
-          `patient_id, patient_name, patient_phone, date, raw_date, time, modality, location, status`
-        );
-        return false;
-      }
-
-      if (data && data[0]) {
-        console.log('✅ Cita guardada:', data[0]);
-        setAppointments([normalizeAppointment(data[0]), ...appointments]);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error('❌ Excepción al agendar cita:', err);
-      alert(`Error inesperado al agendar: ${err.message}`);
-      return false;
+    const { data } = await supabase.from('appointments').insert([payload]).select();
+    if (data && data[0]) {
+      setAppointments([formatAppointmentFromDB(data[0]), ...appointments]);
+    } else {
+      const fallback = formatAppointmentFromDB({ ...newAppointment, id: Date.now() });
+      setAppointments([fallback, ...appointments]);
     }
   };
 
   const handleUpdateAppointment = async (updatedAppointment) => {
-    try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({
-          date: updatedAppointment.date,
-          raw_date: updatedAppointment.rawDate,
-          time: updatedAppointment.time,
-          modality: updatedAppointment.modality,
-          location: updatedAppointment.location,
-        })
-        .eq('id', updatedAppointment.id);
+    const formatted = formatAppointmentFromDB(updatedAppointment);
+    setAppointments(appointments.map(a => a.id === formatted.id ? formatted : a));
 
-      if (error) {
-        console.error('Error al reagendar:', error);
-        alert(`No se pudo reagendar: ${error.message}`);
-        return false;
-      }
-      setAppointments(appointments.map(a => a.id === updatedAppointment.id ? normalizeAppointment(updatedAppointment) : a));
-      return true;
-    } catch (err) {
-      console.error(err);
-      return false;
-    }
+    await supabase
+      .from('appointments')
+      .update({
+        date: updatedAppointment.date,
+        raw_date: updatedAppointment.rawDate || updatedAppointment.raw_date,
+        time: updatedAppointment.time,
+        modality: updatedAppointment.modality,
+        location: updatedAppointment.location,
+      })
+      .eq('id', updatedAppointment.id);
   };
 
   const handleDeleteAppointment = async (id) => {
-    try {
-      const { error } = await supabase.from('appointments').delete().eq('id', id);
-      if (error) {
-        console.error('Error al eliminar:', error);
-        alert(`No se pudo eliminar: ${error.message}`);
-        return false;
-      }
-      setAppointments(appointments.filter(a => a.id !== id));
-      return true;
-    } catch (err) {
-      console.error(err);
-      return false;
-    }
+    await supabase.from('appointments').delete().eq('id', id);
+    setAppointments(appointments.filter(a => a.id !== id));
   };
 
   const handleCompleteSession = async ({ appointmentId, patientId, clinicalNote, epiphanies: newEpiphanies = [], tasks: newTasks = [], date }) => {
     await supabase.from('appointments').update({ status: 'Completada' }).eq('id', appointmentId);
-    setAppointments(appointments.map(a => a.id === appointmentId ? { ...a, status: 'Completada' } : a));
+    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status: 'Completada' } : a));
 
-    await supabase.from('clinical_notes').insert([{ patient_id: patientId, date: date || 'Hoy', text: clinicalNote }]);
+    const notePayload = { 
+      patient_id: patientId, 
+      date: date || 'Hoy', 
+      text: clinicalNote 
+    };
+    const { data: savedNote } = await supabase.from('clinical_notes').insert([notePayload]).select();
+    if (savedNote && savedNote[0]) {
+      setClinicalNotes(prev => [savedNote[0], ...prev]);
+    } else {
+      setClinicalNotes(prev => [{ ...notePayload, id: Date.now() }, ...prev]);
+    }
 
     if (newEpiphanies.length > 0) {
       const payloadEps = newEpiphanies.map(e => ({
@@ -305,10 +336,10 @@ export default function App() {
         insight: e.insight,
         context: e.context,
         date: e.date,
-        author: 'Psic. Nayely',
+        author: 'Psicóloga Nayely',
       }));
       const { data: savedEps } = await supabase.from('epiphanies').insert(payloadEps).select();
-      if (savedEps) setEpiphanies([...savedEps, ...epiphanies]);
+      if (savedEps) setEpiphanies(prev => [...savedEps, ...prev]);
     }
 
     if (newTasks.length > 0) {
@@ -319,7 +350,21 @@ export default function App() {
         done: false,
       }));
       const { data: savedTasks } = await supabase.from('patient_tasks').insert(payloadTasks).select();
-      if (savedTasks) setPatientTasks([...savedTasks, ...patientTasks]);
+      if (savedTasks) setPatientTasks(prev => [...savedTasks, ...prev]);
+    }
+  };
+
+  const handleAddClinicalNote = async ({ patientId, text, date }) => {
+    const payload = {
+      patient_id: patientId,
+      date: date || 'Hoy',
+      text: text.trim()
+    };
+    const { data } = await supabase.from('clinical_notes').insert([payload]).select();
+    if (data && data[0]) {
+      setClinicalNotes(prev => [data[0], ...prev]);
+    } else {
+      setClinicalNotes(prev => [{ ...payload, id: Date.now() }, ...prev]);
     }
   };
 
@@ -328,7 +373,7 @@ export default function App() {
       title: newAudio.title,
       category: newAudio.category,
       duration: newAudio.duration,
-      author: 'Psic. Nayely',
+      author: 'Psicóloga Nayely',
       date: newAudio.date || 'Reciente',
     };
     const { data } = await supabase.from('audio_library').insert([payload]).select();
@@ -412,54 +457,43 @@ export default function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#faf8f5] flex items-center justify-center text-xs text-stone-400">
-        Conectando con la clínica digital de la Psic. Nayely...
+      <div className="min-h-screen bg-[#faf8f5] flex items-center justify-center text-xs text-stone-400 font-light">
+        Verificando credenciales con el consultorio privado...
       </div>
     );
   }
 
+  // SI NO HAY SESIÓN ACTIVA, MUESTRA LOGIN (SIN NINGÚN DATO CARGADO EN MEMORIA)
   if (!currentUser) {
     return (
-      <AuthView
+      <AuthView 
         onLoginWithPin={handleLoginWithPin}
-        therapistPin={THERAPIST_PIN}
       />
     );
   }
 
   const isTherapist = currentUser.role === 'therapist';
-  const currentPatient = !isTherapist
-    ? (patients.find(p => p.id === currentUser.patientId) || null)
-    : null;
+  const currentPatient = !isTherapist ? (patients[0] || null) : null;
 
-  const patientSpecificAppointments = currentPatient
-    ? appointments.filter(a => a.patientId === currentPatient.id || a.patient_id === currentPatient.id)
+  const patientSpecificAppointments = currentPatient 
+    ? appointments.filter(a => a.patient_id === currentPatient.id || a.patientId === currentPatient.id) 
     : [];
   const patientUpcomingAppointment = patientSpecificAppointments.find(a => a.status !== 'Completada');
+  const patientCompletedSessionsCount = patientSpecificAppointments.filter(a => a.status === 'Completada').length;
 
-  const patientSpecificTasks = currentPatient
-    ? patientTasks.filter(t => t.patient_id === currentPatient.id || t.patientId === currentPatient.id)
-    : [];
-
-  const patientSpecificTopics = currentPatient
-    ? sessionTopics.filter(s => s.patient_id === currentPatient.id || s.patientId === currentPatient.id)
-    : [];
-
-  const patientSpecificEpiphanies = currentPatient
-    ? epiphanies.filter(e => e.patient_id === currentPatient.id || e.patientId === currentPatient.id)
-    : [];
-
-  const patientSpecificVictories = currentPatient
-    ? victories.filter(v => v.patient_id === currentPatient.id || v.patientId === currentPatient.id)
-    : [];
+  const patientSpecificTasks = currentPatient ? patientTasks : [];
+  const patientSpecificTopics = currentPatient ? sessionTopics : [];
+  const patientSpecificEpiphanies = currentPatient ? epiphanies : [];
+  const patientSpecificVictories = currentPatient ? victories : [];
+  const patientSpecificMoodCheckIns = currentPatient ? moodCheckIns : [];
 
   return (
     <div className="min-h-screen bg-[#faf8f5] flex justify-center selection:bg-emerald-100">
       <div className="w-full max-w-md bg-[#faf8f5] min-h-screen pb-20 relative shadow-xl border-x border-stone-200/50">
-
+        
         <div className="bg-white/90 backdrop-blur-md px-4 py-2.5 border-b border-stone-200/80 flex items-center justify-between text-xs sticky top-0 z-40">
           <span className="text-[11px] text-stone-600 truncate max-w-[220px]">
-            Sesión activa: <strong className="font-semibold text-stone-900">{currentUser.name}</strong>
+            Sesión: <strong className="font-semibold text-stone-900">{currentUser.name}</strong>
           </span>
 
           <button
@@ -472,14 +506,17 @@ export default function App() {
         </div>
 
         {!isTherapist ? (
-          <PatientView
-            patientName={currentUser.name}
+          <PatientView 
+            currentPatient={currentPatient}
             audioLibrary={audioLibrary}
             tasks={patientSpecificTasks}
             sessionTopics={patientSpecificTopics}
             epiphanies={patientSpecificEpiphanies}
             victories={patientSpecificVictories}
             rescueLetter={rescueLetter}
+            moodCheckIns={patientSpecificMoodCheckIns}
+            completedSessionsCount={patientCompletedSessionsCount}
+            onSaveMoodCheckIn={handleSaveMoodCheckIn}
             patientStatus={currentPatient?.status || 'active'}
             onToggleTask={handleToggleTask}
             onAddSessionTopic={handleAddSessionTopic}
@@ -490,13 +527,16 @@ export default function App() {
             upcomingAppointment={patientUpcomingAppointment}
           />
         ) : (
-          <TherapistView
+          <TherapistView 
             audioLibrary={audioLibrary}
             appointments={appointments}
             patients={patients}
             tasks={patientTasks}
             sessionTopics={sessionTopics}
             epiphanies={epiphanies}
+            moodCheckIns={moodCheckIns}
+            clinicalNotes={clinicalNotes}
+            onAddClinicalNote={handleAddClinicalNote}
             onAddAudio={handleAddAudio}
             onAddTaskToPatient={handleAddTask}
             onDeleteTask={handleDeleteTask}
@@ -507,6 +547,7 @@ export default function App() {
             onDeleteAppointment={handleDeleteAppointment}
             onSavePatient={handleSavePatient}
             onUpdatePatient={handleUpdatePatient}
+            onDeletePatient={handleDeletePatient}
             onCompleteSession={handleCompleteSession}
           />
         )}

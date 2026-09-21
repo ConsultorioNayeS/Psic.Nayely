@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, UserPlus, Phone, AlertCircle, CheckCircle2, ChevronRight, ChevronLeft, ShieldCheck, Mail } from 'lucide-react';
+import { X, UserPlus, Phone, AlertCircle, CheckCircle2, ChevronRight, ChevronLeft, ShieldCheck, Mail, User } from 'lucide-react';
 
 export default function NewPatientModal({ onClose, onSavePatient }) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -8,9 +8,9 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
     firstName: '',
     paternalLastName: '',
     maternalLastName: '',
+    gender: 'Masculino', // <-- 'Masculino' | 'Femenino'
     email: '',
     age: '',
-    gender: 'Femenino',
     occupation: '',
     phone: '',
     emergencyContactName: '',
@@ -47,9 +47,9 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
       paternalLastName: formData.paternalLastName.trim(),
       maternalLastName: formData.maternalLastName.trim(),
       name: fullName,
+      gender: formData.gender, // <-- Guardado oficial
       email: formData.email.trim().toLowerCase() || `${formData.firstName.toLowerCase()}@correo.com`,
       age: formData.age || '25',
-      gender: formData.gender,
       occupation: formData.occupation || 'No especificada',
       phone: formData.phone || 'Sin registrar',
       status: 'active',
@@ -67,7 +67,7 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
       clinicalNotes: [
         {
           date: 'Sesión de Admisión (Hoy)',
-          text: `Apertura de expediente clínico. ${formData.initialHypothesis ? 'Impresión inicial: ' + formData.initialHypothesis : 'Paciente acude a primera entrevista diagnóstica.'}`
+          text: `Apertura de expediente clínico formal. Paciente ${formData.gender === 'Masculino' ? 'masculino' : 'femenino'}. ${formData.initialHypothesis ? 'Impresión inicial: ' + formData.initialHypothesis : 'Acude a primera entrevista diagnóstica.'}`
         }
       ]
     });
@@ -86,7 +86,7 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">Historia Clínica</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">Historia Clínica NOM-004</span>
               <h3 className="text-sm font-semibold text-stone-800">Apertura de Expediente</h3>
             </div>
           </div>
@@ -101,20 +101,20 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
         {/* Indicador de Pasos */}
         <div className="flex border-b border-stone-100 bg-stone-50/40 text-[11px] font-medium px-4 py-2 justify-between">
           <span className={currentStep === 1 ? 'text-[#436146] font-semibold' : 'text-stone-400'}>
-            1. Datos & Correo SOS
+            1. Datos, Sexo & SOS
           </span>
           <span className={currentStep === 2 ? 'text-[#436146] font-semibold' : 'text-stone-400'}>
             2. Motivo & Salud
           </span>
           <span className={currentStep === 3 ? 'text-[#436146] font-semibold' : 'text-stone-400'}>
-            3. Hipótesis & Metas
+            3. Diagnóstico & Metas
           </span>
         </div>
 
         {/* Formulario */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1 text-xs">
           
-          {/* PASO 1: IDENTIFICACIÓN, TELÉFONO, CORREO Y SOS */}
+          {/* PASO 1: IDENTIFICACIÓN, SEXO OBLIGATORIO Y CONTACTO SOS */}
           {currentStep === 1 && (
             <div className="space-y-3.5 animate-fadeIn">
               <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400 block">
@@ -123,88 +123,117 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
 
               {/* Nombre(s) */}
               <div>
-                <label className="font-semibold text-stone-600 block mb-1">Nombre(s) *</label>
+                <label className="font-semibold text-stone-700 block mb-1">Nombre(s) *</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="Ej: Camila" 
+                  placeholder="Ej: Adrián" 
                   value={formData.firstName}
                   onChange={(e) => handleChange('firstName', e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800"
+                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#436146] text-stone-800 font-medium"
                 />
               </div>
 
-              {/* Apellido Paterno y Materno */}
+              {/* Apellidos */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="font-semibold text-stone-600 block mb-1">Apellido Paterno *</label>
+                  <label className="font-semibold text-stone-700 block mb-1">Apellido Paterno *</label>
                   <input 
                     type="text" 
                     required
-                    placeholder="Ej: Morales" 
+                    placeholder="Ej: Valle" 
                     value={formData.paternalLastName}
                     onChange={(e) => handleChange('paternalLastName', e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800"
+                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#436146] text-stone-800"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-stone-600 block mb-1">Apellido Materno</label>
+                  <label className="font-semibold text-stone-700 block mb-1">Apellido Materno</label>
                   <input 
                     type="text" 
-                    placeholder="Ej: López" 
+                    placeholder="Ej: Arreola" 
                     value={formData.maternalLastName}
                     onChange={(e) => handleChange('maternalLastName', e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800"
+                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#436146] text-stone-800"
                   />
                 </div>
               </div>
 
-              {/* Teléfono y Correo Electrónico (VINCULACIÓN CLAVE) */}
+              {/* SELECTOR DE SEXO OBLIGATORIO (Para el reporte y pronombres) */}
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">Sexo del Paciente (Para gramática clínica):</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleChange('gender', 'Masculino')}
+                    className={`py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      formData.gender === 'Masculino'
+                        ? 'bg-[#253827] text-white border-[#253827] shadow-xs'
+                        : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    <span>♂ Masculino (El paciente)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('gender', 'Femenino')}
+                    className={`py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      formData.gender === 'Femenino'
+                        ? 'bg-[#253827] text-white border-[#253827] shadow-xs'
+                        : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    <span>♀ Femenino (La paciente)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Teléfono y Correo */}
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="font-semibold text-stone-600 block mb-1">Teléfono (WhatsApp)</label>
+                  <label className="font-semibold text-stone-700 block mb-1">Teléfono (WhatsApp)</label>
                   <input 
                     type="tel" 
                     placeholder="Ej: 55 1234 5678" 
                     value={formData.phone}
                     onChange={(e) => handleChange('phone', e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800 text-xs"
+                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#436146]"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-stone-600 block mb-1 flex items-center gap-1">
-                    <Mail className="w-3 h-3 text-emerald-700" /> Correo de Acceso *
+                  <label className="font-semibold text-stone-700 block mb-1 flex items-center gap-1">
+                    <Mail className="w-3 h-3 text-emerald-700" /> Correo
                   </label>
                   <input 
                     type="email" 
                     required
-                    placeholder="paciente@gmail.com" 
+                    placeholder="paciente@correo.com" 
                     value={formData.email}
                     onChange={(e) => handleChange('email', e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800 text-xs"
+                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-800 text-xs focus:outline-none focus:ring-2 focus:ring-[#436146]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="font-semibold text-stone-600 block mb-1">Edad</label>
+                  <label className="font-semibold text-stone-700 block mb-1">Edad</label>
                   <input 
                     type="number" 
-                    placeholder="Ej: 28" 
+                    placeholder="Ej: 34" 
                     value={formData.age}
                     onChange={(e) => handleChange('age', e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800"
+                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#436146] text-stone-800"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-stone-600 block mb-1">Ocupación</label>
+                  <label className="font-semibold text-stone-700 block mb-1">Ocupación</label>
                   <input 
                     type="text" 
-                    placeholder="Ej: Diseñadora" 
+                    placeholder="Ej: Ingeniero / Docente" 
                     value={formData.occupation}
                     onChange={(e) => handleChange('occupation', e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800"
+                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#436146] text-stone-800"
                   />
                 </div>
               </div>
@@ -220,7 +249,7 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
                   <label className="text-[10px] font-semibold text-stone-600 block mb-0.5">Nombre del Contacto:</label>
                   <input 
                     type="text" 
-                    placeholder="Ej: Roberto Morales" 
+                    placeholder="Ej: Laura Valle" 
                     value={formData.emergencyContactName}
                     onChange={(e) => handleChange('emergencyContactName', e.target.value)}
                     className="w-full p-2 rounded-xl border border-stone-200 bg-white text-stone-800 text-xs"
@@ -232,7 +261,7 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
                     <label className="text-[10px] font-semibold text-stone-600 block mb-0.5">Parentesco:</label>
                     <input 
                       type="text" 
-                      placeholder="Ej: Hermano / Pareja" 
+                      placeholder="Ej: Esposa / Madre" 
                       value={formData.emergencyContactRelation}
                       onChange={(e) => handleChange('emergencyContactRelation', e.target.value)}
                       className="w-full p-2 rounded-xl border border-stone-200 bg-white text-stone-800 text-xs"
@@ -261,20 +290,20 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
               </span>
 
               <div>
-                <label className="font-semibold text-stone-600 block mb-1">
-                  Motivo de Consulta (En palabras del paciente):
+                <label className="font-semibold text-stone-700 block mb-1">
+                  Motivo de Consulta Principal:
                 </label>
                 <textarea 
                   rows="3"
-                  placeholder="¿Qué lo trae a consulta en este momento de su vida?..."
+                  placeholder="Describe la sintomatología o detonante de consulta..."
                   value={formData.motivo}
                   onChange={(e) => handleChange('motivo', e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800 text-xs resize-none"
+                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#436146] text-stone-800 text-xs resize-none"
                 />
               </div>
 
               <div>
-                <label className="font-semibold text-stone-600 block mb-1">¿Ha llevado psicoterapia antes?</label>
+                <label className="font-semibold text-stone-700 block mb-1">¿Ha llevado psicoterapia antes?</label>
                 <div className="flex gap-2">
                   {['No', 'Sí, hace meses', 'Sí, hace años'].map(opt => (
                     <button
@@ -294,7 +323,7 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
               </div>
 
               <div>
-                <label className="font-semibold text-stone-600 block mb-1">Medicación Actual:</label>
+                <label className="font-semibold text-stone-700 block mb-1">Medicación Actual:</label>
                 <input 
                   type="text" 
                   placeholder="Ej: Sertralina 50mg / Ninguna" 
@@ -305,7 +334,7 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
               </div>
 
               <div>
-                <label className="font-semibold text-stone-600 block mb-1">Patrón de Sueño:</label>
+                <label className="font-semibold text-stone-700 block mb-1">Patrón de Sueño:</label>
                 <input 
                   type="text" 
                   placeholder="Ej: Insomnio de conciliación / Normal" 
@@ -317,17 +346,17 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
             </div>
           )}
 
-          {/* PASO 3: HIPÓTESIS CLÍNICA */}
+          {/* PASO 3: IMPRESIÓN CLÍNICA */}
           {currentStep === 3 && (
             <div className="space-y-3.5 animate-fadeIn">
               <span className="text-[10px] uppercase font-bold tracking-wider text-[#436146] block">
-                Evaluación Clínica de la Psic. Nayely
+                Evaluación Clínica de la Psicóloga Nayely
               </span>
 
               <div className="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100 flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-[#436146] flex-shrink-0" />
                 <p className="text-[11px] text-stone-600">
-                  Esta información es 100% confidencial y solo tú tendrás acceso en tu panel.
+                  Esta información es 100% confidencial bajo secreto profesional.
                 </p>
               </div>
 
@@ -335,21 +364,21 @@ export default function NewPatientModal({ onClose, onSavePatient }) {
                 <label className="font-semibold text-stone-700 block mb-1">Hipótesis Diagnóstica Inicial:</label>
                 <textarea 
                   rows="3"
-                  placeholder="Ej: Probable sintomatología ansiosa reactiva a sobrecarga laboral..."
+                  placeholder="Ej: Probable trastorno de adaptación con respuesta ansiosa..."
                   value={formData.initialHypothesis}
                   onChange={(e) => handleChange('initialHypothesis', e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800 text-xs resize-none"
+                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#436146] text-stone-800 text-xs resize-none"
                 />
               </div>
 
               <div>
-                <label className="font-semibold text-stone-700 block mb-1">Metas / Objetivos del Tratamiento:</label>
+                <label className="font-semibold text-stone-700 block mb-1">Metas y Objetivos del Tratamiento:</label>
                 <textarea 
                   rows="3"
-                  placeholder="Ej: 1) Psicoeducación en ansiedad. 2) Regulación con técnica 4-7-8..."
+                  placeholder="Ej: 1) Psicoeducación. 2) Regulación fisiológica con técnica 4-7-8..."
                   value={formData.therapeuticGoals}
                   onChange={(e) => handleChange('therapeuticGoals', e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-800 text-xs resize-none"
+                  className="w-full p-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#436146] text-stone-800 text-xs resize-none"
                 />
               </div>
             </div>

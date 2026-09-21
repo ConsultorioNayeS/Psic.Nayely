@@ -30,8 +30,8 @@ export default function EpiphanyVaultModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-      <div className="w-full max-w-md bg-[#faf8f5] text-stone-800 rounded-t-[36px] sm:rounded-[36px] max-h-[88vh] flex flex-col shadow-2xl border border-amber-100 overflow-hidden">
+  <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+    <div className="w-full max-w-md bg-[#faf8f5] text-stone-800 rounded-[32px] sm:rounded-[36px] max-h-[88vh] flex flex-col shadow-2xl border border-amber-100 overflow-hidden">
         
         {/* Cabecera Luminosa */}
         <div className="p-5 border-b border-warm-200/60 flex justify-between items-center bg-white/80 backdrop-blur-sm">

@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Volume2, VolumeX, Droplets, Play, Sparkles } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Play, BellRing, Sparkles } from 'lucide-react';
 
 export default function BreathingModal({ onClose }) {
-  // Estado para saber si el paciente ya presionó 'Comenzar'
   const [hasStarted, setHasStarted] = useState(false);
-
   const [phase, setPhase] = useState('inhale'); // 'inhale' | 'hold' | 'exhale'
   const [timer, setTimer] = useState(4);
   const [cycle, setCycle] = useState(1);
@@ -12,49 +10,71 @@ export default function BreathingModal({ onClose }) {
 
   const audioCtxRef = useRef(null);
 
-  // Cuencos armónicos acústicos por fase
-  const playWaterChime = (frequency, duration = 3.5) => {
+  const getAudioCtx = () => {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioCtx();
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+    return audioCtxRef.current;
+  };
+
+  // Cuenco Tibetano Puro y Calibrado en Frecuencias Áureas
+  const playSacredBowl = (currentPhase) => {
     if (!soundEnabled) return;
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') ctx.resume();
-
+      const ctx = getAudioCtx();
       const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(frequency, now);
+      // Frecuencias: Inhalar (432 Hz - Oxígeno y expansión), Sostener (324 Hz - Quietud), Exhalar (216 Hz - Descarga)
+      const freq = currentPhase === 'inhale' ? 432 : currentPhase === 'hold' ? 324 : 216;
+      const duration = currentPhase === 'exhale' ? 7.5 : currentPhase === 'hold' ? 6.5 : 4.2;
 
-      gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.08, now + 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      // 1. Tono Fundamental
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(freq, now);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(now + duration);
+      gain1.gain.setValueAtTime(0.001, now);
+      gain1.gain.linearRampToValueAtTime(0.09, now + 0.12);
+      gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + duration + 0.5);
+
+      // 2. Sobretono Brillante (Octava armónica suave)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(freq * 2, now);
+
+      gain2.gain.setValueAtTime(0.001, now);
+      gain2.gain.linearRampToValueAtTime(0.02, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.0001, now + (duration * 0.6));
+
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now);
+      osc2.stop(now + duration);
     } catch (e) {}
   };
 
-  // Tocar sonido solo si ya comenzó el ejercicio
   useEffect(() => {
     if (!hasStarted) return;
-    if (phase === 'inhale') playWaterChime(432, 4.0);      // Tono celeste (oxígeno)
-    else if (phase === 'hold') playWaterChime(324, 4.5);   // Tono áureo (pausa)
-    else if (phase === 'exhale') playWaterChime(216, 6.0); // Tono violeta (descarga)
+    playSacredBowl(phase);
   }, [phase, hasStarted, soundEnabled]);
 
-  // Cronómetro sincronizado (SOLO corre tras pulsar Comenzar)
+  // Cronómetro del ciclo 4-7-8
   useEffect(() => {
     if (!hasStarted) return;
-
     const interval = setInterval(() => {
       setTimer((prev) => {
         if (prev > 1) return prev - 1;
-
         if (phase === 'inhale') {
           setPhase('hold');
           return 7;
@@ -68,222 +88,144 @@ export default function BreathingModal({ onClose }) {
         }
       });
     }, 1000);
-
     return () => clearInterval(interval);
   }, [hasStarted, phase]);
 
-  // Iniciar la sesión al pulsar el botón central
   const handleStart = () => {
     setHasStarted(true);
     setPhase('inhale');
     setTimer(4);
-    playWaterChime(432, 4.0); // Primer cuenco al arrancar
+    playSacredBowl('inhale');
   };
 
-  // CONFIGURACIÓN DE FÍSICA Y COLOR (INICIA DESINFLADO EN 'IDLE')
-  const getPhaseConfig = () => {
-    if (!hasStarted) {
-      // ESTADO INICIAL: TOTALMENTE RECOGIDO / DESINFLADO
-      return {
-        title: 'Listo',
-        instruction: 'Ponte en una postura cómoda, relaja los hombros y presiona Comenzar.',
-        scale: 0.68,          // Totalmente desinflado / pequeño
-        rippleScale: 0.95,
-        rippleOpacity: 0.2,
-        petalDistance: 12,
-        petalGradient: 'radial-gradient(circle, rgba(45, 212, 191, 0.45) 0%, rgba(13, 148, 136, 0.15) 60%, transparent 80%)',
-        waterGlow: 'rgba(45, 212, 191, 0.15)',
-        ringBorder: 'border-teal-500/25',
-        centerBg: 'bg-[#061e1b]/95',
-        centerBorder: 'border-teal-400/40',
-        badgeBg: 'bg-teal-950/70 border-teal-500/30 text-teal-300',
-        textColor: 'text-teal-300',
-        duration: 1000,
-      };
-    }
-
-    switch (phase) {
-      case 'inhale':
-        return {
-          title: 'Inhala',
-          instruction: 'Toma aire mientras la flor se abre... siente la marea expandirse en tu pecho.',
-          scale: 1.68,        // CRECIMIENTO VISIBLE Y GRANDE
-          rippleScale: 2.15,
-          rippleOpacity: 0.65,
-          petalDistance: 74,
-          // FASE 1: CELESTE OCÉANO & MENTA VIVA
-          petalGradient: 'radial-gradient(circle, rgba(56, 189, 248, 0.8) 0%, rgba(45, 212, 191, 0.4) 60%, transparent 80%)',
-          waterGlow: 'rgba(56, 189, 248, 0.45)',
-          ringBorder: 'border-sky-400/60',
-          centerBg: 'bg-[#041a24]/90',
-          centerBorder: 'border-sky-400/50',
-          badgeBg: 'bg-sky-950/70 border-sky-400/40 text-sky-300',
-          textColor: 'text-sky-300',
-          duration: 4000,     // Florece durante 4 segundos completos
-        };
-      case 'hold':
-        return {
-          title: 'Sostén',
-          instruction: 'Siente la quietud de un lago sin viento... el agua sostiene tu energía.',
-          scale: 1.72,
-          rippleScale: 2.25,
-          rippleOpacity: 0.7,
-          petalDistance: 78,
-          // FASE 2: ORO AURORA & JADE RADIANTE
-          petalGradient: 'radial-gradient(circle, rgba(251, 191, 36, 0.8) 0%, rgba(52, 211, 153, 0.45) 60%, transparent 80%)',
-          waterGlow: 'rgba(251, 191, 36, 0.45)',
-          ringBorder: 'border-amber-400/60',
-          centerBg: 'bg-[#1c1806]/90',
-          centerBorder: 'border-amber-400/50',
-          badgeBg: 'bg-amber-950/70 border-amber-400/40 text-amber-300',
-          textColor: 'text-amber-300',
-          duration: 7000,     // Se mantiene quieta 7 segundos
-        };
-      case 'exhale':
-        return {
-          title: 'Exhala',
-          instruction: 'Suelta todo el aire por la boca... la flor se desinfla y vuelve a la calma.',
-          scale: 0.68,        // SE DESINFLA POR COMPLETO
-          rippleScale: 1.0,
-          rippleOpacity: 0.25,
-          petalDistance: 12,
-          // FASE 3: LAVANDA CREPUSCULAR & VIOLETA
-          petalGradient: 'radial-gradient(circle, rgba(168, 85, 247, 0.7) 0%, rgba(99, 102, 241, 0.35) 60%, transparent 80%)',
-          waterGlow: 'rgba(168, 85, 247, 0.3)',
-          ringBorder: 'border-purple-400/40',
-          centerBg: 'bg-[#150720]/90',
-          centerBorder: 'border-purple-400/40',
-          badgeBg: 'bg-purple-950/70 border-purple-400/40 text-purple-300',
-          textColor: 'text-purple-300',
-          duration: 8000,     // Se repliega lentamente durante 8 segundos
-        };
+  const phaseVisuals = {
+    inhale: {
+      title: 'Inhala',
+      detail: 'Expande suavemente tu pecho mientras el orbe florece...',
+      scale: 1.55,
+      opacity: 0.75,
+      duration: 4000,
+      glow: 'rgba(94, 234, 212, 0.35)',
+    },
+    hold: {
+      title: 'Sostén',
+      detail: 'Permanece en la quietud de tus pulmones llenos...',
+      scale: 1.62,
+      opacity: 0.85,
+      duration: 7000,
+      glow: 'rgba(251, 191, 36, 0.3)',
+    },
+    exhale: {
+      title: 'Exhala',
+      detail: 'Suelta todo el aire por la boca, liberando la tensión...',
+      scale: 0.72,
+      opacity: 0.3,
+      duration: 8000,
+      glow: 'rgba(167, 139, 250, 0.25)',
     }
   };
 
-  const current = getPhaseConfig();
+  const currentVisual = !hasStarted ? {
+    title: 'Pausa',
+    detail: 'Ponte en postura cómoda, relaja los hombros e inicia.',
+    scale: 0.75,
+    opacity: 0.25,
+    duration: 1000,
+    glow: 'rgba(45, 212, 191, 0.15)',
+  } : phaseVisuals[phase];
 
   return (
-    <div className="fixed inset-0 bg-[#030d0b] z-50 flex flex-col justify-between items-center p-6 text-white overflow-hidden select-none animate-fadeIn">
+    <div className="fixed inset-0 bg-[#071310]/95 backdrop-blur-2xl z-50 flex flex-col justify-between items-center p-6 text-stone-100 select-none animate-fadeIn">
       
-      {/* Barra superior */}
-      <div className="w-full max-w-sm flex items-center justify-between pt-2 z-20">
+      {/* Barra superior limpia */}
+      <div className="w-full max-w-sm flex items-center justify-between z-20 pt-2">
         <button 
           onClick={onClose}
-          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-stone-200 transition-colors cursor-pointer"
+          className="w-10 h-10 rounded-full glass-panel hover:bg-white/20 flex items-center justify-center text-stone-300 hover:text-white transition-all tap-bounce cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        {/* Badge superior que muta de color con cada fase */}
-        <span className={`text-[10px] tracking-widest uppercase font-semibold border px-3.5 py-1 rounded-full flex items-center gap-1.5 transition-all duration-1000 ${current.badgeBg}`}>
-          <Droplets className="w-3 h-3" /> {hasStarted ? `Ciclo ${cycle} • ${current.title}` : 'Respiración Guiada'}
+        <span className="glass-pill px-3.5 py-1 rounded-full text-[10px] tracking-widest uppercase font-semibold text-emerald-300 flex items-center gap-1.5 shadow-inner-light">
+          <BellRing className="w-3 h-3 text-emerald-400" />
+          {hasStarted ? `Ciclo ${cycle} • ${currentVisual.title}` : 'Respiración 4-7-8 • Cuencos'}
         </span>
 
         <button 
           onClick={() => setSoundEnabled(!soundEnabled)}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-            soundEnabled ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/30' : 'bg-white/10 text-stone-400'
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all tap-bounce cursor-pointer ${
+            soundEnabled ? 'bg-emerald-600 text-white shadow-glow-sage' : 'glass-panel text-stone-400'
           }`}
-          title={soundEnabled ? 'Silenciar cuencos' : 'Activar sonido'}
+          title={soundEnabled ? 'Silenciar cuencos' : 'Activar cuencos'}
         >
           {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
         </button>
       </div>
 
-      {/* ÁREA CENTRAL: ONDAS Y LOTO CON COLOR DINÁMICO */}
+      {/* Orbe Central Calm */}
       <div className="relative flex items-center justify-center my-auto w-80 h-80">
         
-        {/* ONDA DE AGUA 1 */}
         <div 
-          className={`absolute w-72 h-72 rounded-full border pointer-events-none transition-all ${current.ringBorder}`}
+          className="absolute w-72 h-72 rounded-full filter blur-3xl pointer-events-none transition-all"
           style={{
-            transform: `scale(${current.rippleScale})`,
-            opacity: current.rippleOpacity,
-            transitionDuration: `${current.duration}ms`,
+            backgroundColor: currentVisual.glow,
+            transform: `scale(${currentVisual.scale * 1.3})`,
+            transitionDuration: `${currentVisual.duration}ms`,
             transitionTimingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)'
           }}
         />
 
-        {/* ONDA DE AGUA 2 */}
-        <div 
-          className={`absolute w-60 h-60 rounded-full border-2 pointer-events-none transition-all ${current.ringBorder}`}
-          style={{
-            transform: `scale(${current.rippleScale * 0.85})`,
-            opacity: current.rippleOpacity * 1.1,
-            transitionDuration: `${current.duration}ms`,
-            transitionTimingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)'
-          }}
-        />
-
-        {/* RESPLANDOR CENTRAL FLUIDO */}
-        <div 
-          className="absolute w-64 h-64 rounded-full filter blur-3xl pointer-events-none transition-all"
-          style={{
-            backgroundColor: current.waterGlow,
-            transform: `scale(${current.scale * 1.3})`,
-            transitionDuration: `${current.duration}ms`,
-            transitionTimingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)'
-          }}
-        />
-
-        {/* 6 PÉTALOS CON GRADIENTE DINÁMICO */}
-        {[0, 60, 120, 180, 240, 300].map((angle, i) => (
+        {[1, 2, 3].map((ring) => (
           <div
-            key={i}
-            className="absolute w-36 h-36 rounded-full pointer-events-none transition-all"
+            key={ring}
+            className="absolute rounded-full border border-emerald-400/20 pointer-events-none transition-all"
             style={{
-              background: current.petalGradient,
-              mixBlendMode: 'screen',
-              transform: `
-                rotate(${angle + (hasStarted && phase !== 'exhale' ? 35 : 0)}deg) 
-                translate(${current.petalDistance}px) 
-                scale(${current.scale})
-              `,
-              transitionDuration: `${current.duration}ms`,
+              width: `${ring * 95}px`,
+              height: `${ring * 95}px`,
+              transform: `scale(${currentVisual.scale * (1 + ring * 0.1)})`,
+              opacity: currentVisual.opacity / ring,
+              transitionDuration: `${currentVisual.duration}ms`,
               transitionTimingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)'
             }}
           />
         ))}
 
-        {/* NÚCLEO CENTRAL INTERACTIVO */}
         {!hasStarted ? (
-          /* BOTÓN INICIAL 'COMENZAR' */
           <button
             onClick={handleStart}
-            className="relative z-10 w-32 h-32 rounded-full border border-teal-400/50 bg-[#061e1b]/95 backdrop-blur-md flex flex-col items-center justify-center text-center shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+            className="relative z-10 w-36 h-36 rounded-full glass-panel border border-emerald-300/30 flex flex-col items-center justify-center text-center shadow-luxe hover:scale-105 active:scale-95 transition-all tap-bounce cursor-pointer group"
           >
-            <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-300 mb-1 group-hover:scale-110 transition-transform">
-              <Play className="w-5 h-5 ml-0.5 fill-teal-300" />
+            <div className="w-11 h-11 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-300 mb-1 group-hover:scale-110 transition-transform">
+              <Play className="w-5 h-5 ml-0.5 fill-emerald-300" />
             </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-teal-200">
+            <span className="text-xs font-semibold tracking-wider text-emerald-100 uppercase">
               Comenzar
             </span>
-            <span className="text-[9px] text-teal-300/60 font-light mt-0.5">Técnica 4-7-8</span>
+            <span className="text-[9px] text-stone-400 font-light font-mono">Técnica 4-7-8</span>
           </button>
         ) : (
-          /* NÚCLEO CON NÚMERO Y FASE TRAS COMENZAR */
           <div 
-            className={`relative z-10 w-28 h-28 rounded-full border backdrop-blur-md flex flex-col items-center justify-center text-center shadow-2xl transition-all ${current.centerBg} ${current.centerBorder}`}
+            className="relative z-10 w-32 h-32 rounded-full glass-panel border border-emerald-300/40 flex flex-col items-center justify-center text-center shadow-2xl transition-all"
             style={{
-              transform: `scale(${phase === 'exhale' ? 0.9 : 1.05})`,
-              transitionDuration: `${current.duration}ms`
+              transform: `scale(${phase === 'exhale' ? 0.92 : 1.05})`,
+              transitionDuration: `${currentVisual.duration}ms`
             }}
           >
-            <span className="text-3xl font-light tracking-tight text-white font-mono">
+            <span className="text-4xl font-light font-mono text-white tracking-tight">
               {timer}
             </span>
-            <span className={`text-[11px] uppercase tracking-widest font-semibold mt-0.5 transition-colors duration-1000 ${current.textColor}`}>
-              {current.title}
+            <span className="text-[11px] uppercase tracking-widest font-semibold text-emerald-300 mt-1">
+              {currentVisual.title}
             </span>
           </div>
         )}
 
       </div>
 
-      {/* Pie de texto con guía calmada */}
+      {/* Guía Inferior */}
       <div className="w-full max-w-xs text-center z-20 pb-4 space-y-3">
-        <p className="text-xs font-light text-stone-300 min-h-[2.5rem] transition-all duration-700 leading-relaxed">
-          {current.instruction}
+        <p className="text-xs font-light text-stone-300 min-h-[2.5rem] leading-relaxed transition-opacity duration-500 font-serif italic">
+          {currentVisual.detail}
         </p>
 
         <button 

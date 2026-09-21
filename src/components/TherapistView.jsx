@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  ShieldCheck, Plus, ChevronRight, Music, Users, Calendar, 
-  Clock, MapPin, MessageCircle, Edit3, UserPlus, Search, 
-  Headphones, Play, Pause, CheckCircle2 
+  ShieldCheck, Plus, ChevronRight, Users, Calendar, 
+  UserPlus, Search, Headphones, Play, Pause 
 } from 'lucide-react';
 import PatientRecordModal from './PatientRecordModal';
 import UploadAudioModal from './UploadAudioModal';
@@ -20,6 +19,9 @@ export default function TherapistView({
   tasks = [],
   sessionTopics = [],
   epiphanies = [],
+  moodCheckIns = [],
+  clinicalNotes = [],
+  onAddClinicalNote,
   onAddAudio, 
   onAddTaskToPatient,
   onDeleteTask,
@@ -29,7 +31,8 @@ export default function TherapistView({
   onUpdateAppointment,
   onDeleteAppointment,
   onSavePatient,
-  onUpdatePatient, // <-- RECIBE FUNCIÓN DE ACTUALIZAR PACIENTE
+  onUpdatePatient,
+  onDeletePatient,
   onCompleteSession
 }) {
   const [activeTab, setActiveTab] = useState('agenda');
@@ -56,46 +59,46 @@ export default function TherapistView({
     : audioLibrary.filter(a => a.category === audioFilter);
 
   const handleSendWhatsAppReminder = (apt) => {
-    const patient = patients.find(p => p.id === apt.patientId);
-    const rawPhone = apt.patientPhone || patient?.phone || '';
+    const patient = patients.find(p => p.id === apt.patientId || p.id === apt.patient_id);
+    const rawPhone = apt.patientPhone || apt.patient_phone || patient?.phone || '';
     const firstName = patient?.firstName || apt.patientFirstName || apt.patientName.split(' ')[0];
 
     let cleanPhone = rawPhone.replace(/\D/g, '');
     if (cleanPhone.length === 10) cleanPhone = '52' + cleanPhone;
 
-    const locationText = apt.modality === 'Presencial' 
-      ? `en el consultorio: *${apt.location}*` 
-      : `vía *${apt.location}*`;
+    const leaf = '\u{1F33F}';
+    const heart = '\u{1F90D}';
+    const cal = '\u{1F5D3}\u{FE0F}';
+    const clock = '\u{23F0}';
+    const pin = '\u{1F4CD}';
+    const sparkles = '\u{2728}';
+    const dove = '\u{1F54A}\u{FE0F}';
 
-    const text = `Hola ${firstName}, te saluda la Psic. Nayely para recordarte nuestra sesión terapéutica programada para el *${apt.date}* a las *${apt.time}* ${locationText}. Nos vemos pronto para continuar con tu proceso.`;
-    const encoded = encodeURIComponent(text);
+    const text = `${leaf} *Psicóloga Nayely | Espacio Terapéutico* ${heart}\n\nHola *${firstName}*, paso a recordarte con mucho cariño nuestra sesión de hoy:\n\n${cal} *Fecha:* ${apt.date}\n${clock} *Horario:* ${apt.time}\n${pin} *Modalidad:* ${apt.modality}\n\nPor favor respóndeme con un *SÍ* para confirmar que nos vemos, o avísame si surge algún imprevisto.\n\n${sparkles} _Nos vemos muy pronto para continuar cuidando de tu bienestar._ ${dove}`;
 
-    const waUrl = cleanPhone 
-      ? `https://wa.me/${cleanPhone}?text=${encoded}` 
-      : `https://wa.me/?text=${encoded}`;
-
+    const waUrl = `https://api.whatsapp.com/send/?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
   };
 
   return (
-    <div className="flex flex-col min-h-screen pb-24">
+    <div className="flex flex-col min-h-screen pb-28 select-none bg-[#faf8f5]">
       
-      {/* Cabecera Oficial */}
-      <header className="p-5 border-b border-stone-200/80 bg-white flex justify-between items-center sticky top-11 z-30 shadow-xs">
+      {/* Cabecera */}
+      <header className="px-6 py-4 glass-panel border-b border-white/70 sticky top-0 z-30 flex justify-between items-center shadow-ambient">
         <div>
-          <span className="text-[10px] font-bold tracking-wider text-[#436146] uppercase flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" /> Panel Clínico Privado
+          <span className="text-[10px] font-bold tracking-[0.2em] text-[#335236] uppercase flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3 text-emerald-700" /> Consultorio Clínico Privado
           </span>
-          <h1 className="text-lg font-light text-stone-800">
-            Psic. <span className="font-semibold text-stone-900">Nayely</span>
+          <h1 className="text-xl font-serif text-stone-900 tracking-tight">
+            Psicóloga <span className="italic font-normal text-[#2a422d]">Nayely</span>
           </h1>
         </div>
-        <div className="w-9 h-9 rounded-2xl bg-[#436146] text-white flex items-center justify-center text-xs font-semibold shadow-sm">
+        <div className="w-9 h-9 rounded-2xl bg-[#2a422d] text-white flex items-center justify-center font-serif text-xs font-semibold shadow-sm">
           NY
         </div>
       </header>
 
-      {/* CONTENIDO PRINCIPAL */}
+      {/* Contenido Principal */}
       <main className="p-5 space-y-5 flex-1 animate-fadeIn">
         
         {/* PESTAÑA 1: AGENDA */}
@@ -110,57 +113,57 @@ export default function TherapistView({
           />
         )}
 
-        {/* PESTAÑA 2: EXPEDIENTES GENERALES */}
+        {/* PESTAÑA 2: ARCHIVERO DE PACIENTES */}
         {activeTab === 'patients' && (
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center px-1">
               <div>
-                <h2 className="text-base font-semibold text-stone-800">Expedientes Clínicos</h2>
-                <p className="text-xs text-stone-400">Historial completo y antecedentes</p>
+                <h2 className="text-lg font-serif text-stone-900">Expedientes Clínicos</h2>
+                <p className="text-xs text-stone-400 font-light">{patients.length} expedientes activos bajo resguardo</p>
               </div>
               <button
                 onClick={() => setShowNewPatientModal(true)}
-                className="px-3.5 py-2 bg-[#436146] hover:bg-[#253827] text-white rounded-2xl text-xs font-medium flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                className="px-3.5 py-2 bg-[#2a422d] hover:bg-[#1d2f20] text-white rounded-2xl text-xs font-medium flex items-center gap-1.5 shadow-luxe tap-bounce transition-all cursor-pointer"
               >
-                <UserPlus className="w-4 h-4" /> Nuevo Paciente
+                <UserPlus className="w-3.5 h-3.5" /> Nuevo Paciente
               </button>
             </div>
 
             <div className="relative">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-stone-400 absolute left-4 top-1/2 -translate-y-1/2" />
               <input 
                 type="text"
-                placeholder="Buscar en el archivero por nombre o motivo..."
+                placeholder="Buscar por nombre, motivo o antecedente..."
                 value={patientSearch}
                 onChange={(e) => setPatientSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-stone-200 bg-white text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs"
+                className="w-full pl-11 pr-4 py-3 rounded-2xl border border-stone-200/80 bg-white text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#335236]/30 shadow-ambient"
               />
             </div>
 
             <div className="space-y-2.5 pt-1">
               {filteredPatients.length === 0 ? (
-                <div className="text-center py-10 text-stone-400 text-xs bg-white rounded-3xl border border-dashed border-stone-200">
-                  No se encontraron expedientes.
+                <div className="glass-panel text-center py-10 text-stone-400 text-xs rounded-3xl border border-dashed border-stone-200">
+                  No se encontraron expedientes con ese término.
                 </div>
               ) : (
                 filteredPatients.map(p => (
                   <div 
                     key={p.id}
                     onClick={() => setSelectedPatient(p)}
-                    className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-sm hover:border-emerald-500/50 hover:shadow-md transition-all cursor-pointer flex justify-between items-center group"
+                    className="glass-panel p-4 rounded-3xl border border-stone-200/80 shadow-ambient hover:shadow-luxe hover:border-[#335236]/40 transition-all cursor-pointer flex justify-between items-center group tap-bounce"
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-semibold text-stone-800 group-hover:text-[#436146] transition-colors">
+                        <h4 className="text-xs font-semibold text-stone-900 group-hover:text-[#2a422d] transition-colors">
                           {p.name}
                         </h4>
-                        <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-md font-medium">
+                        <span className="text-[10px] bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-medium">
                           {p.age} años
                         </span>
                       </div>
-                      <p className="text-[11px] text-stone-400 mt-1 line-clamp-1">{p.motivo}</p>
-                      <span className="text-[10px] text-emerald-700 font-medium mt-1 block">
-                        📞 {p.phone || 'Sin número'}
+                      <p className="text-[11px] text-stone-500 mt-1 line-clamp-1 font-light">{p.motivo}</p>
+                      <span className="text-[10px] text-[#4e7e52] font-semibold mt-1 block">
+                        📞 {p.phone || 'Sin número asignado'}
                       </span>
                     </div>
                     <ChevronRight className="w-4 h-4 text-stone-300 group-hover:translate-x-1 transition-transform" />
@@ -174,28 +177,28 @@ export default function TherapistView({
         {/* PESTAÑA 3: FONOTECA */}
         {activeTab === 'audio' && (
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center px-1">
               <div>
-                <h2 className="text-base font-semibold text-stone-800">Mi Fonoteca</h2>
-                <p className="text-xs text-stone-400">{audioLibrary.length} meditaciones publicadas</p>
+                <h2 className="text-lg font-serif text-stone-900">Estudio de Voz y Fonoteca</h2>
+                <p className="text-xs text-stone-400 font-light">{audioLibrary.length} meditaciones publicadas</p>
               </div>
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="px-3.5 py-2 bg-[#436146] hover:bg-[#253827] text-white rounded-2xl text-xs font-medium flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                className="px-3.5 py-2 bg-[#2a422d] hover:bg-[#1d2f20] text-white rounded-2xl text-xs font-medium flex items-center gap-1.5 shadow-luxe tap-bounce transition-all cursor-pointer"
               >
-                <Plus className="w-4 h-4" /> Subir Audio
+                <Plus className="w-3.5 h-3.5" /> Subir Audio
               </button>
             </div>
 
-            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
               {['Todos', 'Ansiedad', 'Insomnio', 'Autoestima', 'Respiración'].map(cat => (
                 <button
                   key={cat}
                   onClick={() => setAudioFilter(cat)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all tap-bounce cursor-pointer ${
                     audioFilter === cat
-                      ? 'bg-[#436146] text-white shadow-sm'
-                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      ? 'bg-[#2a422d] text-white shadow-sm'
+                      : 'glass-panel text-stone-600 hover:bg-white'
                   }`}
                 >
                   {cat}
@@ -211,14 +214,14 @@ export default function TherapistView({
                     key={audio.id}
                     className={`p-4 rounded-3xl border transition-all flex items-center gap-3.5 ${
                       isPlaying 
-                        ? 'bg-emerald-50/70 border-emerald-300 shadow-sm' 
-                        : 'bg-white border-stone-200/80 shadow-sm hover:border-emerald-500/30'
+                        ? 'bg-emerald-50/80 border-emerald-300 shadow-sm' 
+                        : 'glass-panel border-stone-200/80 shadow-ambient'
                     }`}
                   >
                     <button
                       onClick={() => setPlayingAudioId(isPlaying ? null : audio.id)}
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 cursor-pointer ${
-                        isPlaying ? 'bg-emerald-600 text-white shadow-md' : 'bg-[#436146] text-white'
+                      className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform tap-bounce cursor-pointer ${
+                        isPlaying ? 'bg-emerald-600 text-white shadow-glow-sage' : 'bg-[#2a422d] text-white'
                       }`}
                     >
                       {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
@@ -226,14 +229,14 @@ export default function TherapistView({
 
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline">
-                        <h4 className="text-xs font-semibold text-stone-800 truncate">{audio.title}</h4>
+                        <h4 className="text-xs font-semibold text-stone-900 truncate">{audio.title}</h4>
                         <span className="text-[10px] text-stone-400 font-mono ml-2">{audio.duration}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[9px] bg-stone-100 px-2 py-0.5 rounded-full text-stone-500 font-medium">
+                        <span className="text-[9px] bg-stone-100 px-2 py-0.5 rounded-full text-stone-600 font-medium">
                           {audio.category}
                         </span>
-                        <span className="text-[10px] text-stone-400">
+                        <span className="text-[10px] text-stone-400 font-light">
                           {audio.date}
                         </span>
                       </div>
@@ -247,52 +250,47 @@ export default function TherapistView({
 
       </main>
 
-      {/* BARRA INFERIOR */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-stone-200/80 px-6 py-2.5 flex justify-between items-center z-40 shadow-lg">
+      {/* Barra de Navegación */}
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto glass-panel border-t border-white/80 px-8 py-3 flex justify-between items-center z-40 shadow-ambient">
         <button
           onClick={() => setActiveTab('agenda')}
-          className={`flex flex-col items-center gap-1 transition-all cursor-pointer ${
-            activeTab === 'agenda' ? 'text-[#436146] scale-105' : 'text-stone-400 hover:text-stone-600'
+          className={`flex flex-col items-center gap-1 transition-all tap-bounce cursor-pointer ${
+            activeTab === 'agenda' ? 'text-[#2a422d] font-semibold scale-105' : 'text-stone-400 hover:text-stone-600 font-normal'
           }`}
         >
-          <div className={`p-1.5 rounded-xl ${activeTab === 'agenda' ? 'bg-emerald-50' : ''}`}>
-            <Calendar className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] font-semibold">Agenda</span>
+          <Calendar className="w-5 h-5" />
+          <span className="text-[10px]">Agenda</span>
         </button>
 
         <button
           onClick={() => setActiveTab('patients')}
-          className={`flex flex-col items-center gap-1 transition-all cursor-pointer ${
-            activeTab === 'patients' ? 'text-[#436146] scale-105' : 'text-stone-400 hover:text-stone-600'
+          className={`flex flex-col items-center gap-1 transition-all tap-bounce cursor-pointer ${
+            activeTab === 'patients' ? 'text-[#2a422d] font-semibold scale-105' : 'text-stone-400 hover:text-stone-600 font-normal'
           }`}
         >
-          <div className={`p-1.5 rounded-xl ${activeTab === 'patients' ? 'bg-emerald-50' : ''}`}>
-            <Users className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] font-semibold">Archivero</span>
+          <Users className="w-5 h-5" />
+          <span className="text-[10px]">Archivero</span>
         </button>
 
         <button
           onClick={() => setActiveTab('audio')}
-          className={`flex flex-col items-center gap-1 transition-all cursor-pointer ${
-            activeTab === 'audio' ? 'text-[#436146] scale-105' : 'text-stone-400 hover:text-stone-600'
+          className={`flex flex-col items-center gap-1 transition-all tap-bounce cursor-pointer ${
+            activeTab === 'audio' ? 'text-[#2a422d] font-semibold scale-105' : 'text-stone-400 hover:text-stone-600 font-normal'
           }`}
         >
-          <div className={`p-1.5 rounded-xl ${activeTab === 'audio' ? 'bg-emerald-50' : ''}`}>
-            <Headphones className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] font-semibold">Fonoteca</span>
+          <Headphones className="w-5 h-5" />
+          <span className="text-[10px]">Fonoteca</span>
         </button>
       </nav>
 
-      {/* MODAL RADIOGRAFÍA PRE-SESIÓN */}
+      {/* Modales Clínicos */}
       {preSessionAppointment && (
         <PreSessionBriefingModal
           appointment={preSessionAppointment}
-          patient={patients.find(p => p.id === preSessionAppointment.patientId) || patients[0]}
-          sessionTopics={sessionTopics}
-          tasks={tasks}
+          patient={patients.find(p => p.id === (preSessionAppointment.patientId || preSessionAppointment.patient_id)) || patients[0]}
+          sessionTopics={sessionTopics.filter(s => s.patient_id === (preSessionAppointment.patientId || preSessionAppointment.patient_id))}
+          tasks={tasks.filter(t => t.patient_id === (preSessionAppointment.patientId || preSessionAppointment.patient_id))}
+          moodCheckIns={moodCheckIns.filter(m => m.patient_id === (preSessionAppointment.patientId || preSessionAppointment.patient_id))}
           onClose={() => setPreSessionAppointment(null)}
           onStartSession={(apt) => {
             setPreSessionAppointment(null);
@@ -301,7 +299,6 @@ export default function TherapistView({
         />
       )}
 
-      {/* MODAL CIERRE DE SESIÓN */}
       {checkoutAppointment && (
         <SessionCheckoutModal
           appointment={checkoutAppointment}
@@ -310,13 +307,15 @@ export default function TherapistView({
         />
       )}
 
-      {/* MODAL FICHA CLÍNICA MAESTRA */}
       {selectedPatient && (
         <PatientRecordModal 
           patient={selectedPatient} 
-          tasks={tasks}
-          sessionTopics={sessionTopics}
-          epiphanies={epiphanies}
+          tasks={tasks.filter(t => t.patient_id === selectedPatient.id)}
+          sessionTopics={sessionTopics.filter(s => s.patient_id === selectedPatient.id)}
+          epiphanies={epiphanies.filter(e => e.patient_id === selectedPatient.id)}
+          clinicalNotes={clinicalNotes.filter(n => n.patient_id === selectedPatient.id)} // REPARADO: Notas reales pasadas al expediente
+          completedSessionsCount={appointments.filter(a => (a.patient_id === selectedPatient.id || a.patientId === selectedPatient.id) && a.status === 'Completada').length}
+          onAddClinicalNote={onAddClinicalNote}
           onClose={() => setSelectedPatient(null)} 
           onAddTask={onAddTaskToPatient}
           onDeleteTask={onDeleteTask}
@@ -324,7 +323,11 @@ export default function TherapistView({
           onAddEpiphany={onAddEpiphany}
           onUpdatePatient={(updated) => {
             if (onUpdatePatient) onUpdatePatient(updated);
-            setSelectedPatient(updated); // Actualiza la vista inmediata
+            setSelectedPatient(updated);
+          }}
+          onDeletePatient={(id) => {
+            if (onDeletePatient) onDeletePatient(id);
+            setSelectedPatient(null);
           }}
         />
       )}
