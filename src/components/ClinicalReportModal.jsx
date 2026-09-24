@@ -25,7 +25,7 @@ export default function ClinicalReportModal({
   sessionTopics = [],
   onClose 
 }) {
-  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6JKuwY4k2yQHUj4KvH9a4Ucumtl5hZcEuuOxzeKVcnZAw').trim();
+  const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
 
   // Datos Institucionales Oficiales de Nayely
   const THERAPIST_FULL_NAME = 'Psicóloga Nayely Monserrat Stamatio Contreras';
